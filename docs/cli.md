@@ -46,6 +46,22 @@ Starts the server in development mode.
 pyberry dev user_app.py
 ```
 
+## `pyberry migrate`
+Runs the `db/initial_schema.sql` file to setup or update your local or edge database.
+
+**Under the hood:**
+1. Connects to the database specified by `LIBSQL_URL` (defaults to `file:db/local.db`) in `security.py`.
+2. Reads the schema file and executes the raw SQL using the asynchronous `db.execute()` method.
+
+**Options:**
+- `--file <path>`: Specifies a custom path to a SQL schema file. Defaults to `db/initial_schema.sql`.
+
+**Usage:**
+```bash
+pyberry migrate
+pyberry migrate --file custom_schema.sql
+```
+
 ## `pyberry check`
 Performs a comprehensive system check to ensure all dependencies for PyBerry's maximum performance are met across Linux, macOS, and Windows.
 

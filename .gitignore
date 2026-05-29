@@ -65,3 +65,14 @@ coverage.xml
 
 # Node modules for benchmark
 node_modules/
+
+# Local databases
+*.db
+*.sqlite3
+*.sqlite
+
+# Local benchmarks
+benchmark_results.txt
+
+# Local Test Apps
+app*/

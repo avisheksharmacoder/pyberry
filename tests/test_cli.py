@@ -2,17 +2,18 @@ import pytest
 import sys
 import os
 from unittest.mock import patch, MagicMock
-from pyberry.cli import init, build, dev, check
+from pyberry.cli import create_app, build, dev, check
 
-def test_cli_init():
+def test_cli_create_app():
     args = MagicMock()
     args.app = "test_project"
     
     with patch("os.makedirs") as mock_makedirs, patch("builtins.open", new_callable=MagicMock) as mock_open:
-        init(args)
+        create_app(args)
         
-        mock_makedirs.assert_called_with(os.path.join(os.getcwd(), "test_project"), exist_ok=True)
-        assert mock_open.call_count == 4  # main.py, user_app.py, security.py, berrypy.log
+        mock_makedirs.assert_any_call(os.path.join(os.getcwd(), "test_project"), exist_ok=True)
+        mock_makedirs.assert_any_call(os.path.join(os.getcwd(), "test_project", "db"), exist_ok=True)
+        assert mock_open.call_count == 5  # main.py, security.py, db/initial_schema.sql, docs.md, berrypy.log
 
 def test_cli_build():
     args = MagicMock()

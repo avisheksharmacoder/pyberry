@@ -24,7 +24,7 @@ def test_router_path_parameters():
     handler, path_params, param_meta = router.match_python_route("GET", "/users/123")
     assert handler is user_handler
     assert path_params == {"user_id": "123"}
-    assert param_meta["user_id"] == int
+    assert param_meta["user_id"] == (int, None)
 
 def test_router_not_found():
     router = Router()

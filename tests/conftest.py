@@ -3,12 +3,13 @@ import asyncio
 from unittest.mock import Mock, AsyncMock
 
 class MockRSGIScope:
-    def __init__(self, method="GET", path="/", query_string="", proto="http", headers=None):
+    def __init__(self, method="GET", path="/", query_string="", proto="http", headers=None, client=None):
         self.method = method
         self.path = path
         self.query_string = query_string
         self.proto = proto
         self.headers = headers or {}
+        self.client = client or ["127.0.0.1", 12345]
 
 class MockRSGIProtocol:
     def __init__(self, body=b""):

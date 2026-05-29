@@ -11,11 +11,13 @@ if os.path.exists("docs/README.md"):
 extensions = [
     Extension("pyberry.core.request", ["src/pyberry/core/request.pyx"]),
     Extension("pyberry.core.response", ["src/pyberry/core/response.pyx"]),
+    Extension("pyberry.core.validation", ["src/pyberry/core/validation.pyx"]),
     Extension("pyberry.core.router", ["src/pyberry/core/router.pyx"]),
     Extension("pyberry.core.security", ["src/pyberry/core/security.pyx"]),
     Extension("pyberry.core.future", ["src/pyberry/core/future.pyx"]),
     Extension("pyberry.core.rsgi", ["src/pyberry/core/rsgi.pyx"]),
     Extension("pyberry.core.logger", ["src/pyberry/core/logger.pyx"]),
+    Extension("pyberry.core.responses", ["src/pyberry/core/responses.pyx"]),
 ]
 
 setup(
@@ -29,7 +31,8 @@ setup(
     package_dir={"": "src"},
     ext_modules=cythonize(
         extensions,
-        compiler_directives={"language_level": "3"}
+        compiler_directives={"language_level": "3", "freethreading_compatible": True},
+        force=True
     ),
     entry_points={
         'console_scripts': [

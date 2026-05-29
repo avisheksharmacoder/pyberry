@@ -22,6 +22,7 @@ cdef class Router:
     cdef RadixNode* delete_tree
     cdef RadixNode* patch_tree
     cdef public dict python_routes
+    cdef public dict exact_routes
     
     cdef void add_route(self, str method, str path, EndpointFunc handler)
     cdef EndpointFunc get_route(self, str method, str path)

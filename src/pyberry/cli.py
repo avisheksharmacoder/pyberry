@@ -7,13 +7,16 @@ RED = "\033[91m"
 GREEN = "\033[92m"
 RESET = "\033[0m"
 
-def init(args):
+def create_app(args):
     app_dir = args.app
     if app_dir == ".":
         base_dir = os.getcwd()
     else:
         base_dir = os.path.join(os.getcwd(), app_dir)
         os.makedirs(base_dir, exist_ok=True)
+        
+    # Create db folder
+    os.makedirs(os.path.join(base_dir, "db"), exist_ok=True)
     
     print(f"{GREEN}[pyberry] Initializing project in {base_dir}...{RESET}")
     
@@ -22,24 +25,30 @@ def init(args):
 import os
 
 from pyberry.core.rsgi import app
-
-# The Granian entrypoint
-# Run with: pyberry dev user_app.py
-"""
-    with open(os.path.join(base_dir, "main.py"), "w") as f:
-        f.write(main_code)
-        
-    # user_app.py
-    user_app_code = """from pyberry.core.responses import JSONResponse
+from pyberry.core.responses import JSONResponse
 from pyberry.app import get
 from pyberry.core.request import Request
+from pyberry.db import db
 
 @get("/")
 def index(req: Request):
     return JSONResponse({"status": "ok", "message": "Welcome to PyBerry!"})
+
+@get("/users")
+async def get_users(req: Request):
+    # Example database query using the global db connection pool
+    try:
+        # Assuming you've run `pyberry migrate` to create the users table
+        users = await db.query("SELECT * FROM users")
+        return JSONResponse({"status": "ok", "users": users})
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status=500)
+
+# The Granian entrypoint
+# Run with: pyberry dev main.py
 """
-    with open(os.path.join(base_dir, "user_app.py"), "w") as f:
-        f.write(user_app_code)
+    with open(os.path.join(base_dir, "main.py"), "w") as f:
+        f.write(main_code)
         
     # security.py
     security_code = """# security.py
@@ -55,9 +64,72 @@ CORS_ENABLED = True
 
 # Turn off for peak benchmarking (RPS)
 LOGGING_ENABLED = True
+
+# -------------------------------------------------------------------------
+# Deep Level Security Options
+# -------------------------------------------------------------------------
+
+# Automatically injects HSTS, X-Frame-Options, Content-Security-Policy, etc.
+SECURITY_HEADERS_ENABLED = True
+HSTS_MAX_AGE = 31536000
+X_FRAME_OPTIONS = "DENY"
+CONTENT_SECURITY_POLICY = "default-src 'self'"
+
+# Maximum allowed payload size (in bytes) to prevent Memory Exhaustion/DoS.
+MAX_BODY_SIZE = 1048576  # 1MB
+
+# Protect against directory traversal attacks in URLs (e.g., %2e%2e%2f)
+PATH_TRAVERSAL_PROTECTION = True
+
+# Rate Limiting (In-Memory).
+# NOTE: Rate limiting is DISABLED by default so it doesn't affect benchmarking.
+# Be sure to enable this in Production to protect your endpoints.
+RATE_LIMIT_ENABLED = False
+RATE_LIMIT_REQUESTS = 100
+RATE_LIMIT_WINDOW = 60
+
+# -------------------------------------------------------------------------
+# Database Options (libsql)
+# -------------------------------------------------------------------------
+# Default to local db for development.
+# For production, you can replace this with your Turso DB URL (e.g., libsql://my-db-user.turso.io)
+LIBSQL_URL = "file:db/local.db"
+# Provide the auth token here if using a remote Turso DB.
+LIBSQL_AUTH_TOKEN = None
 """
     with open(os.path.join(base_dir, "security.py"), "w") as f:
         f.write(security_code)
+        
+    # db/initial_schema.sql
+    schema_code = """-- Example schema for pyberry migrate
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL
+);
+
+INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com') ON CONFLICT DO NOTHING;
+"""
+    with open(os.path.join(base_dir, "db", "initial_schema.sql"), "w") as f:
+        f.write(schema_code)
+        
+    # docs.md
+    docs_code = """# PyBerry Project Documentation
+
+Welcome to your new PyBerry application!
+
+## CLI Commands
+
+Here are the main commands you can use with your PyBerry project:
+
+- **`pyberry dev main.py`**: Start the development server with hot-reloading (if supported by your Python version).
+- **`pyberry build main.py`**: Transpile your application using Cython for production (maximum performance).
+- **`pyberry run`**: Run the production build of your application (requires `pyberry build` to be run first).
+- **`pyberry migrate`**: Run the `db/initial_schema.sql` file to setup your database.
+- **`pyberry check`**: Verify that your system meets all requirements for optimal PyBerry performance (Python 3.13+ free-threaded, Cython, C compiler).
+"""
+    with open(os.path.join(base_dir, "docs.md"), "w") as f:
+        f.write(docs_code)
         
     # Create empty log file
     with open(os.path.join(base_dir, "berrypy.log"), "w") as f:
@@ -117,7 +189,7 @@ from Cython.Build import cythonize
 setup(
     ext_modules=cythonize(
 {ext_list_str},
-        compiler_directives={{"language_level": "3"}}
+        compiler_directives={{"language_level": "3", "freethreading_compatible": True}}
     ),
     script_args=["build_ext", "--inplace"]
 )
@@ -246,12 +318,50 @@ def check(args):
     else:
         print(f"\n{RED}Some checks failed or generated warnings. PyBerry may not run optimally.{RESET}")
 
+def migrate(args):
+    print(f"{GREEN}[pyberry] Running database migration...{RESET}")
+    # Initialize config to load security settings like LIBSQL_URL
+    from pyberry.config import config
+    from pyberry.db import db
+    import asyncio
+    
+    schema_path = os.path.join(os.getcwd(), args.file)
+    if not os.path.exists(schema_path):
+        print(f"{RED}[ERROR] Schema file '{args.file}' not found.{RESET}")
+        return
+        
+    with open(schema_path, "r") as f:
+        sql = f.read()
+        
+    if getattr(config, 'libsql_url', None) is None:
+        print(f"{RED}[ERROR] LIBSQL_URL not found in configuration.{RESET}")
+        return
+        
+    print(f"Connecting to database at {config.libsql_url}...")
+    db.init_db(config.libsql_url, getattr(config, 'libsql_auth_token', None))
+    
+    async def run_migration():
+        try:
+            # Split and execute each statement for better compatibility with libsql driver 
+            # if multiple statements are provided.
+            # Using execute() might only run the first statement or block of statements.
+            await db.execute(sql)
+            print(f"{GREEN}[pyberry] Migration successful!{RESET}")
+        except Exception as e:
+            print(f"{RED}[ERROR] Migration failed: {e}{RESET}")
+        finally:
+            await db.close_db()
+            
+    asyncio.run(run_migration())
+
 def main():
     parser = argparse.ArgumentParser(description="PyBerry CLI")
     subparsers = parser.add_subparsers(dest="command")
     
-    init_parser = subparsers.add_parser("init")
-    init_parser.add_argument("app", help="Path to create the app in (e.g., . for current directory, or myapp)")
+    create_parser = subparsers.add_parser("create")
+    create_subparsers = create_parser.add_subparsers(dest="create_command")
+    create_app_parser = create_subparsers.add_parser("app")
+    create_app_parser.add_argument("app", help="Path to create the app in (e.g., . for current directory, or myapp)")
     
     build_parser = subparsers.add_parser("build")
     build_parser.add_argument("app", help="Path to your app file (e.g., user_app.py)")
@@ -262,19 +372,27 @@ def main():
     dev_parser = subparsers.add_parser("dev")
     dev_parser.add_argument("app", help="Path to your app file")
     
+    migrate_parser = subparsers.add_parser("migrate")
+    migrate_parser.add_argument("--file", default="db/initial_schema.sql", help="Path to the SQL schema file")
+    
     check_parser = subparsers.add_parser("check")
     check_parser.description = "Check system requirements for PyBerry"
     
     args = parser.parse_args()
     
-    if args.command == "init":
-        init(args)
+    if args.command == "create":
+        if getattr(args, "create_command", None) == "app":
+            create_app(args)
+        else:
+            print("Usage: pyberry create app <app_name>")
     elif args.command == "build":
         build(args)
     elif args.command == "run":
         run(args)
     elif args.command == "dev":
         dev(args)
+    elif args.command == "migrate":
+        migrate(args)
     elif args.command == "check":
         check(args)
     else:

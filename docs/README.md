@@ -18,8 +18,9 @@ By combining the **Rust Server Gateway Interface (RSGI)** via Granian, **Cython 
 2. [Command Line Interface (CLI)](cli.md)
 3. [Modular Project Design](modular.md)
 4. [Fast HTTP Responses & Exceptions](responses.md)
-5. [The Core Runtime](#the-core-runtime)
-6. [AOT Transpiler Engine](#aot-transpiler-engine)
+5. [Database (LibSQL) Integration](database.md)
+6. [The Core Runtime](#the-core-runtime)
+7. [AOT Transpiler Engine](#aot-transpiler-engine)
 
 ## Quick Start
 ```bash

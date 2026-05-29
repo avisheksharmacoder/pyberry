@@ -140,18 +140,31 @@ cdef class Router:
         self.delete_tree = create_node(b"/", 0)
         self.patch_tree = create_node(b"/", 0)
         self.python_routes = {}
+        self.exact_routes = {}
 
     def add_python_route(self, method, path, handler):
-        if method not in self.python_routes:
-            self.python_routes[method] = []
+        import dataclasses
+        from pyberry.core.validation import compile_schema
             
         # Extract parameter metadata
         sig = inspect.signature(handler)
         param_meta = {}
         for name, param in sig.parameters.items():
             if name != "req":
-                param_meta[name] = param.annotation
+                p_type = param.annotation
+                schema = None
+                if dataclasses.is_dataclass(p_type):
+                    schema = compile_schema(p_type)
+                param_meta[name] = (p_type, schema)
                 
+        # Optimize exact routes (O(1) lookup)
+        if "{" not in path:
+            self.exact_routes[(method, path)] = (handler, {}, param_meta)
+            return
+            
+        if method not in self.python_routes:
+            self.python_routes[method] = []
+            
         # Convert path variables like {user_id} into regex named capture groups
         # e.g. "/user/{user_id}" -> "^/user/(?P<user_id>[^/]+)$"
         pattern_str = "^" + re.sub(r"\{([^}]+)\}", r"(?P<\1>[^/]+)", path) + "$"
@@ -160,15 +173,15 @@ cdef class Router:
         self.python_routes[method].append((pattern, handler, param_meta))
 
     def match_python_route(self, method, path):
-        print("MATCHING METHOD:", method, "PATH:", path)
+        exact = self.exact_routes.get((method, path))
+        if exact is not None:
+            return exact[0], exact[1], exact[2]
+            
         routes = self.python_routes.get(method, [])
         for pattern, handler, param_meta in routes:
-            print("TRYING PATTERN:", pattern)
             match = pattern.match(path)
             if match:
-                print("MATCH FOUND:", match)
                 return handler, match.groupdict(), param_meta
-        print("NO MATCH FOUND")
         return None, None, None
 
     def __dealloc__(self):

@@ -9,7 +9,8 @@ dynamic = ["description", "readme", "authors"]
 dependencies = [
     "granian",
     "cython",
-    "setuptools"
+    "setuptools",
+    "libsql-client"
 ]
 
 [project.scripts]

@@ -1,0 +1,3 @@
+cd benchmark/rust_backend
+cargo build --release
+./target/release/rust_backend

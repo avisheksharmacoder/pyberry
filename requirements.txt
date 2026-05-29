@@ -1,0 +1,7 @@
+granian
+cython
+setuptools
+pytest
+pytest-asyncio
+pytest-cov
+httpx

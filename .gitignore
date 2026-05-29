@@ -1,0 +1,67 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Cython generated C files
+src/pyberry/core/*.c
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+plans/
+downloads/
+eggs/
+.eggs/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Project specific build artifact
+.berry_build/
+
+# Virtual Environments (ignoring the venv files in your project root)
+bin/
+include/
+lib/
+lib64/
+pyvenv.cfg
+.venv/
+venv/
+ENV/
+env/
+
+# Logs
+*.log
+server_output.log
+
+# IDEs and Tools
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.smd
+.pytest_cache/
+
+# Node modules for benchmark
+node_modules/

@@ -1,0 +1,54 @@
+Golang
+
+wrk -t4 -c1000 -d20s http://127.0.0.1:8000
+Running 20s test @ http://127.0.0.1:8000
+  4 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    22.32ms    4.32ms  69.45ms   80.90%
+    Req/Sec    11.25k   820.46    13.11k    67.50%
+  895547 requests in 20.02s, 122.98MB read
+Requests/sec:  44730.08
+Transfer/sec:      6.14MB
+
+
+NodeJS
+
+ wrk -t4 -c1000 -d20s http://127.0.0.1:8000
+Running 20s test @ http://127.0.0.1:8000
+  4 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    38.54ms   61.28ms   1.99s    99.41%
+    Req/Sec     4.34k   779.97     6.26k    70.12%
+  345848 requests in 20.03s, 86.08MB read
+  Socket errors: connect 0, read 0, write 0, timeout 528
+Requests/sec:  17264.76
+Transfer/sec:      4.30MB
+
+
+Rust
+
+wrk -t4 -c1000 -d20s http://127.0.0.1:8000
+Running 20s test @ http://127.0.0.1:8000
+  4 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    40.83ms   51.96ms 179.44ms   79.00%
+    Req/Sec    22.43k     2.74k   30.98k    68.62%
+  1784986 requests in 20.02s, 277.47MB read
+Requests/sec:  89159.65
+Transfer/sec:     13.86MB
+
+
+
+
+
+Python - PyBerry
+
+ wrk -t4 -c1000 -d20s http://127.0.0.1:8000
+Running 20s test @ http://127.0.0.1:8000
+  4 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    20.75ms    5.46ms 134.15ms   97.06%
+    Req/Sec    12.25k   833.17    14.04k    80.28%
+  972455 requests in 20.02s, 153.02MB read
+Requests/sec:  48566.09
+Transfer/sec:      7.64MB

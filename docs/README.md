@@ -1,6 +1,6 @@
 # PyBerry Technical Documentation
 
-Welcome to the PyBerry technical documentation. PyBerry is an experimental, ultra-high-performance web framework built specifically for **Free-Threaded Python 3.14+ (No GIL)**. 
+Welcome to the [PyBerry](https://pypi.org/project/pyberry-framework/) technical documentation. PyBerry is an experimental, ultra-high-performance web framework built specifically for **Free-Threaded Python 3.14+ (No GIL)**. 
 
 By combining the **Rust Server Gateway Interface (RSGI)** via Granian, **Cython Ahead-Of-Time (AOT) compilation**, and a custom **C-based Radix Tree Router**, PyBerry regularly exceeds 100,000 Requests/sec on a single worker process locally.
 

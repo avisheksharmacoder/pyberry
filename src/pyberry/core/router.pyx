@@ -140,26 +140,36 @@ cdef class Router:
         self.delete_tree = create_node(b"/", 0)
         self.patch_tree = create_node(b"/", 0)
         self.python_routes = {}
-        self.exact_routes = {}
+        self.exact_routes = {"GET": {}, "POST": {}, "PUT": {}, "DELETE": {}, "PATCH": {}}
 
     def add_python_route(self, method, path, handler):
         import dataclasses
         from pyberry.core.validation import compile_schema
             
-        # Extract parameter metadata
+        # Extract parameter metadata positionally
         sig = inspect.signature(handler)
-        param_meta = {}
+        param_meta_list = []
         for name, param in sig.parameters.items():
             if name != "req":
                 p_type = param.annotation
                 schema = None
+                
                 if dataclasses.is_dataclass(p_type):
                     schema = compile_schema(p_type)
-                param_meta[name] = (p_type, schema)
+                elif hasattr(p_type, "_schema") or (hasattr(p_type, "__bases__") and any(b.__name__ == 'BaseModel' for b in getattr(p_type, "__bases__", []))):
+                    schema = getattr(p_type, "_schema", None)
+                    if schema is None:
+                        schema = compile_schema(p_type)
+                        
+                param_meta_list.append((name, p_type, schema))
+                
+        param_meta = tuple(param_meta_list)
                 
         # Optimize exact routes (O(1) lookup)
         if "{" not in path:
-            self.exact_routes[(method, path)] = (handler, {}, param_meta)
+            if method not in self.exact_routes:
+                self.exact_routes[method] = {}
+            self.exact_routes[method][path] = (handler, {}, param_meta)
             return
             
         if method not in self.python_routes:
@@ -173,9 +183,11 @@ cdef class Router:
         self.python_routes[method].append((pattern, handler, param_meta))
 
     def match_python_route(self, method, path):
-        exact = self.exact_routes.get((method, path))
-        if exact is not None:
-            return exact[0], exact[1], exact[2]
+        exact_method = self.exact_routes.get(method)
+        if exact_method is not None:
+            exact = exact_method.get(path)
+            if exact is not None:
+                return exact[0], exact[1], exact[2]
             
         routes = self.python_routes.get(method, [])
         for pattern, handler, param_meta in routes:

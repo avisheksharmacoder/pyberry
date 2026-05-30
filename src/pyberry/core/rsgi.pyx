@@ -13,7 +13,8 @@ from urllib.parse import parse_qs
 from pyberry.core.responses import HTTPException
 from pyberry.core.logger cimport push_log
 from pyberry.core.logger import start_logger
-from pyberry.core.validation import validate_data, BaseModel
+from pyberry.core.validation import BaseModel
+from pyberry.core import fastjson
 
 _loop_configured = False
 
@@ -109,55 +110,56 @@ async def app(scope, proto):
             
             if py_handler is not None:
                 req = PyRequest(scope, proto)
-                kwargs = {}
-                
-                if scope.query_string:
-                    query_params = parse_qs(scope.query_string)
-                    for k, v in query_params.items():
-                        kwargs[k] = v[0]
-                        
-                if path_params:
-                    kwargs.update(path_params)
-                    
                 try:
                     if param_meta:
-                        injected_kwargs = {}
-                        for name, meta_tuple in param_meta.items():
-                            p_type, schema = meta_tuple
+                        args_list = [req]
+                        query_params = None
+                        if scope.query_string:
+                            query_params = parse_qs(scope.query_string)
                             
+                        for name, p_type, schema in param_meta:
                             if schema is not None:
-                                # It's a dataclass!
-                                json_data = await req.json()
-                                validated = validate_data(schema, json_data)
-                                injected_kwargs[name] = p_type(**validated)
-                            elif hasattr(p_type, "__bases__") and BaseModel in p_type.__bases__:
-                                # It's a BaseModel!
-                                json_data = await req.json()
-                                injected_kwargs[name] = p_type(**json_data)
-                            elif name in kwargs:
-                                val = kwargs[name]
-                                if p_type is not inspect._empty:
+                                msg = await proto()
+                                req._body = msg
+                                if msg:
+                                    parsed = fastjson.parse_model(p_type, schema, msg)
+                                else:
+                                    parsed = None
+                                args_list.append(parsed)
+                            else:
+                                val = None
+                                if path_params and name in path_params:
+                                    val = path_params[name]
+                                elif query_params and name in query_params:
+                                    val = query_params[name][0]
+                                    
+                                if val is not None and p_type is not inspect._empty:
                                     if p_type == 'int' or p_type == int:
-                                        try:
-                                            val = int(val)
-                                        except ValueError:
-                                            pass
+                                        try: val = int(val)
+                                        except ValueError: pass
                                     elif p_type == 'float' or p_type == float:
-                                        try:
-                                            val = float(val)
-                                        except ValueError:
-                                            pass
+                                        try: val = float(val)
+                                        except ValueError: pass
                                     elif p_type == 'bool' or p_type == bool:
                                         val = str(val).lower() in ('true', '1', 'yes', 't', 'y')
                                     elif callable(p_type):
-                                        try:
-                                            val = p_type(val)
-                                        except Exception:
-                                            pass
-                                injected_kwargs[name] = val
-                        res = py_handler(req, **injected_kwargs)
+                                        try: val = p_type(val)
+                                        except Exception: pass
+                                args_list.append(val)
+                                
+                        res = py_handler(*args_list)
                     else:
-                        res = py_handler(req, **kwargs)
+                        if path_params or scope.query_string:
+                            kwargs = {}
+                            if scope.query_string:
+                                query_params = parse_qs(scope.query_string)
+                                for k, v in query_params.items():
+                                    kwargs[k] = v[0]
+                            if path_params:
+                                kwargs.update(path_params)
+                            res = py_handler(req, **kwargs)
+                        else:
+                            res = py_handler(req)
                         
                     if hasattr(res, "__await__"):
                         res = await res
@@ -181,11 +183,18 @@ async def app(scope, proto):
                     
                     final_headers = res.headers + config.security_headers if config.security_headers else res.headers
                     
-                    proto.response_str(
-                        status=res.status, 
-                        headers=final_headers, 
-                        body=res.body
-                    )
+                    if isinstance(res.body, bytes):
+                        proto.response_bytes(
+                            status=res.status, 
+                            headers=final_headers, 
+                            body=res.body
+                        )
+                    else:
+                        proto.response_str(
+                            status=res.status, 
+                            headers=final_headers, 
+                            body=res.body
+                        )
                     _rsgi_push_log(scope.method, scope.path, res.status)
                 except HTTPException as e:
                     proto.response_str(
@@ -238,9 +247,16 @@ async def app(scope, proto):
         final_headers_c = res.headers + config.security_headers if config.security_headers else res.headers
         
         # Send the response back through Granian
-        proto.response_str(
-            status=res.status, 
-            headers=final_headers_c, 
-            body=res.body
-        )
+        if isinstance(res.body, bytes):
+            proto.response_bytes(
+                status=res.status, 
+                headers=final_headers_c, 
+                body=res.body
+            )
+        else:
+            proto.response_str(
+                status=res.status, 
+                headers=final_headers_c, 
+                body=res.body
+            )
         _rsgi_push_log(scope.method, scope.path, res.status)

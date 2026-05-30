@@ -3,14 +3,7 @@ import cython
 from pyberry.exceptions import UnprocessableEntityException
 import dataclasses
 
-cdef enum FieldType:
-    TYPE_INT = 1
-    TYPE_FLOAT = 2
-    TYPE_BOOL = 3
-    TYPE_STR = 4
-    TYPE_LIST = 5
-    TYPE_DICT = 6
-    TYPE_ANY = 7
+
 
 cdef int _get_type_enum(object type_hint):
     if type_hint is int:

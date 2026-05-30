@@ -18,14 +18,15 @@ extensions = [
     Extension("pyberry.core.rsgi", ["src/pyberry/core/rsgi.pyx"]),
     Extension("pyberry.core.logger", ["src/pyberry/core/logger.pyx"]),
     Extension("pyberry.core.responses", ["src/pyberry/core/responses.pyx"]),
+    Extension("pyberry.core.fastjson", ["src/pyberry/core/fastjson.pyx", "src/pyberry/core/vendor/yyjson/yyjson.c"]),
 ]
 
 setup(
     name="pyberry-framework",
-    version="0.1.0",
-    author="Your Name",
-    author_email="your.email@example.com",
-    description="A fast, compiled async web framework",
+    version="0.1.1",
+    author="Avishek Sharma",
+    author_email="avisheksharmacoder@gmail.com",
+    description="A fast, Cython compiled async web framework",
     long_description=long_description,
     long_description_content_type="text/markdown",
     package_dir={"": "src"},

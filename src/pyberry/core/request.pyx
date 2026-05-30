@@ -1,6 +1,6 @@
 # cython: language_level=3
 import cython
-import json
+from pyberry.core import fastjson
 
 cdef class Request:
 
@@ -37,4 +37,4 @@ cdef class Request:
         body_bytes = await self.body()
         if not body_bytes:
             return {}
-        return json.loads(body_bytes)
+        return fastjson.loads(body_bytes)

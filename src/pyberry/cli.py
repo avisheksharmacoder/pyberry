@@ -202,6 +202,10 @@ setup(
 
 def run(args):
     print(f"{GREEN}[pyberry] Starting in PRODUCTION mode...{RESET}")
+    print(f"{GREEN}  - Server:      Granian{RESET}")
+    print(f"{GREEN}  - Workers:     {args.workers}{RESET}")
+    print(f"{GREEN}  - Event Loop:  uvloop{RESET}")
+    print(f"{GREEN}  - Interface:   RSGI{RESET}")
     env = os.environ.copy()
     env["PYTHON_GIL"] = "0"
     env["PYTHONPATH"] = "src:.:.berry_build"
@@ -222,10 +226,14 @@ from pyberry.core.rsgi import app
     with open(".berry_build/run_wrapper.py", "w") as f:
         f.write(wrapper_code)
         
-    subprocess.run(["granian", "--interface", "rsgi", "--workers", str(args.workers), "run_wrapper:app"], env=env, check=True)
+    subprocess.run(["granian", "--interface", "rsgi", "--workers", str(args.workers), "--loop", "uvloop", "run_wrapper:app"], env=env, check=True)
 
 def dev(args):
     print(f"{RED}[pyberry] Starting in DEV mode (Hot Reloading)...{RESET}")
+    print(f"{RED}  - Server:      Granian{RESET}")
+    print(f"{RED}  - Workers:     1{RESET}")
+    print(f"{RED}  - Event Loop:  uvloop{RESET}")
+    print(f"{RED}  - Interface:   RSGI{RESET}")
     env = os.environ.copy()
     env["PYTHON_GIL"] = "0"
     env["PYTHONPATH"] = "src:.:.berry_build"
@@ -243,7 +251,7 @@ from pyberry.core.rsgi import app
         
     import sysconfig
     
-    cmd = ["granian", "--interface", "rsgi", "--workers", "1"]
+    cmd = ["granian", "--interface", "rsgi", "--workers", "1", "--loop", "uvloop"]
     if not sysconfig.get_config_var('Py_GIL_DISABLED'):
         cmd.append("--reload")
     else:

@@ -26,6 +26,7 @@ cdef extern from "vendor/yyjson/yyjson.h":
     bint yyjson_is_str(yyjson_val *val)
     bint yyjson_is_arr(yyjson_val *val)
     bint yyjson_is_obj(yyjson_val *val)
+    size_t yyjson_obj_size(yyjson_val *obj)
 
     bint yyjson_get_bool(yyjson_val *val)
     long long yyjson_get_sint(yyjson_val *val)

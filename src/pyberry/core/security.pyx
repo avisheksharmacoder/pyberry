@@ -6,10 +6,10 @@ cdef dict _rate_limit_store = {}
 
 cdef int check_rate_limit(str ip, int max_req, int window) except *:
     cdef double now = time.time()
-    cdef tuple data = _rate_limit_store.get(ip)
+    cdef list data = _rate_limit_store.get(ip)
     
     if data is None:
-        _rate_limit_store[ip] = (1, now)
+        _rate_limit_store[ip] = [1, now]
         return 0
         
     cdef int count = data[0]
@@ -17,13 +17,14 @@ cdef int check_rate_limit(str ip, int max_req, int window) except *:
     
     if now - first_req > window:
         # Reset window
-        _rate_limit_store[ip] = (1, now)
+        data[0] = 1
+        data[1] = now
         return 0
         
     if count >= max_req:
         return 429
         
-    _rate_limit_store[ip] = (count + 1, first_req)
+    data[0] += 1
     return 0
 
 cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, bint path_traversal_protection) except *:
@@ -32,14 +33,13 @@ cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, b
     Returns 0 if valid, 400 for Bad Request, 403 for Forbidden.
     """
     if path_traversal_protection:
-        p = scope.path.lower()
-        if ".." in p or "%2e%2e" in p:
+        if ".." in scope.path or "%2e%2e" in scope.path or "%2E%2E" in scope.path:
             return 400
 
     cdef str origin = None
     cdef str host = None
     
-    # Granian passes headers which we can iterate over
+    cdef object headers_items
     try:
         headers_items = scope.headers.items()
     except AttributeError:

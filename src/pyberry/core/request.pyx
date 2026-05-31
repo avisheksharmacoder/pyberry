@@ -4,7 +4,7 @@ from pyberry.core import fastjson
 
 cdef class Request:
 
-    def __init__(self, scope, proto=None):
+    def __cinit__(self, scope, proto=None):
         self.scope = scope
         self.proto = proto
         self._body = None

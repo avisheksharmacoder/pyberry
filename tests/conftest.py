@@ -28,6 +28,12 @@ class MockRSGIProtocol:
         self.response_body = body
         self.response_called = True
 
+    def response_bytes(self, status, headers, body):
+        self.response_status = status
+        self.response_headers = headers
+        self.response_body = body
+        self.response_called = True
+
 @pytest.fixture
 def mock_scope():
     return MockRSGIScope()

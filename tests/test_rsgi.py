@@ -28,7 +28,7 @@ async def test_rsgi_successful_request(mock_proto):
     assert mock_proto.response_called
     assert mock_proto.response_status == 200
     assert ('content-type', 'application/json') in mock_proto.response_headers
-    assert mock_proto.response_body == b'{"ok": true}'
+    assert mock_proto.response_body == b'{"ok":true}'
 
 @pytest.mark.asyncio
 async def test_rsgi_not_found(mock_proto):
@@ -52,7 +52,7 @@ async def test_rsgi_parameter_injection(mock_proto):
     
     assert mock_proto.response_called
     assert mock_proto.response_status == 200
-    assert mock_proto.response_body == b'{"id": 42}'
+    assert mock_proto.response_body == b'{"id":42}'
 
 @pytest.mark.asyncio
 async def test_rsgi_http_exception(mock_proto):

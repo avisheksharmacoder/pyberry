@@ -73,6 +73,9 @@ cdef extern from *:
         time_t now;
         struct tm* tm_info;
         FILE* log_file = fopen("berrypy.log", "a");
+        if (log_file) {
+            setvbuf(log_file, NULL, _IOFBF, 65536);
+        }
         
         const char* C_GET = "\\033[92m";
         const char* C_POST = "\\033[94m";
@@ -101,7 +104,6 @@ cdef extern from *:
                 
                 fprintf(stdout, "[%s] %s%s%s %s - %s%d%s\\n", 
                     time_buf, method_color, entry.method, C_RESET, entry.path, status_color, entry.status, C_RESET);
-                fflush(stdout);
                 
                 if (log_file) {
                     fprintf(log_file, "[%s] %s %s - %d\\n", time_buf, entry.method, entry.path, entry.status);

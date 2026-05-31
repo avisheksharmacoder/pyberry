@@ -3,7 +3,7 @@ from pyberry.core import fastjson
 from pyberry.core.response cimport Response
 
 cdef class JSONResponse(Response):
-    def __init__(self, content, int status = 200, list headers = None):
+    def __cinit__(self, content, int status = 200, list headers = None):
         cdef bytes body = fastjson.dumps(content)
             
         cdef list _headers = [('content-type', 'application/json')]
@@ -15,7 +15,7 @@ cdef class JSONResponse(Response):
         self.headers = _headers
 
 cdef class HTMLResponse(Response):
-    def __init__(self, str content, int status = 200, list headers = None):
+    def __cinit__(self, str content, int status = 200, list headers = None):
         cdef bytes body = content.encode('utf-8')
         cdef list _headers = [('content-type', 'text/html')]
         if headers is not None:
@@ -26,7 +26,7 @@ cdef class HTMLResponse(Response):
         self.headers = _headers
 
 cdef class PlainTextResponse(Response):
-    def __init__(self, str content, int status = 200, list headers = None):
+    def __cinit__(self, str content, int status = 200, list headers = None):
         cdef bytes body = content.encode('utf-8')
         cdef list _headers = [('content-type', 'text/plain')]
         if headers is not None:

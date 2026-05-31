@@ -70,7 +70,7 @@ async def test_rsgi_basemodel_injection(mock_proto):
     router.add_python_route("POST", "/test_basemodel", handler)
         
     scope = MockRSGIScope(method="POST", path="/test_basemodel", proto="http")
-    mock_proto.body = json.dumps({"id": "999", "name": "Zack"}).encode("utf-8")
+    mock_proto.body = json.dumps({"id": 999, "name": "Zack"}).encode("utf-8")
     
     await app(scope, mock_proto)
     

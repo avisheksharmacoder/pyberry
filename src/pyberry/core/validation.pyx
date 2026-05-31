@@ -40,6 +40,16 @@ cpdef dict compile_schema(object cls):
             default_val = getattr(cls, name, None) if has_default else None
             schema[name] = (type_enum, default_val, not has_default)
             
+    cdef list req_fields = []
+    cdef list def_fields = []
+    for schema_name, meta in schema.items():
+        if meta[2]:
+            req_fields.append(schema_name)
+        else:
+            def_fields.append((schema_name, meta[1]))
+            
+    cls._required_fields = tuple(req_fields)
+    cls._default_fields = tuple(def_fields)
     return schema
 
 cpdef dict validate_data(dict schema, dict data):

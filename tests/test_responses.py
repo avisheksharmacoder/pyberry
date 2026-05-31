@@ -5,7 +5,7 @@ from pyberry.core.responses import JSONResponse, HTMLResponse, PlainTextResponse
 def test_json_response():
     resp = JSONResponse({"test": "ok"}, status=201, headers=[('x-custom', 'test')])
     assert resp.status == 201
-    assert resp.body == json.dumps({"test": "ok"}).encode('utf-8')
+    assert resp.body == b'{"test":"ok"}'
     assert ('content-type', 'application/json') in resp.headers
     assert ('x-custom', 'test') in resp.headers
 

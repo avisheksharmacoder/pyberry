@@ -12,6 +12,8 @@ src/pyberry/core/*.c
 # Distribution / packaging
 build/
 benchmark/
+/benchmark/
+benchmark_results/
 develop-eggs/
 dist/
 plans/
@@ -64,6 +66,7 @@ coverage.xml
 *.cover
 *.smd
 .pytest_cache/
+test_granian.py
 
 # Node modules for benchmark
 node_modules/
@@ -79,4 +82,5 @@ benchmark_results.txt
 # Local Test Apps
 app*/
 app5*/
+
 

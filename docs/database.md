@@ -2,7 +2,7 @@
 
 PyBerry comes with high-performance, native support for **LibSQL**, the open-source and edge-ready fork of SQLite. It allows you to build extremely fast edge applications while maintaining the simplicity of traditional SQLite.
 
-Our database integration uses an asynchronous wrapper (`libsql-client`) to prevent I/O blocking in the free-threaded worker environment.
+Our database integration uses an asynchronous wrapper (`libsql-client`) to prevent I/O blocking.
 
 ## 1. Project Scaffold and Folder Structure
 When you create a new project using `pyberry create <name>`, PyBerry automatically scaffolds a `db/` folder inside the root directory.

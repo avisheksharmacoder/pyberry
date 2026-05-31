@@ -15,11 +15,6 @@ PyBerry achieves unprecedented speed by bypassing the traditional Python WSGI/AS
 6. **Execution**: The user's handler executes. Because the user's code was compiled via `pyberry build`, it runs natively as a Cython C-extension.
 7. **Response**: The `Response` object is returned and serialized directly back into Granian's response stream.
 
-## Why Free-Threaded Python?
-Traditional Python uses the Global Interpreter Lock (GIL), meaning only one thread can execute Python bytecode at a time. This severely bottlenecks multi-core Rust web servers (like Granian) when they try to hand off thousands of concurrent requests to Python workers.
-
-By targeting **Python 3.13/3.14+ (Free-Threaded)**, PyBerry runs with `PYTHON_GIL=0`. This allows multiple requests to be processed truly concurrently within the *same* worker process, allowing a single worker to hit 100k+ RPS.
-
 ## The AOT Compiler (`pyberry/compiler/`)
 The Ahead-Of-Time transpiler takes standard Python files and supercharges them.
 

@@ -1,11 +1,11 @@
 # PyBerry Technical Documentation
 
-Welcome to the [PyBerry](https://pypi.org/project/pyberry-framework/) technical documentation. PyBerry is an experimental, ultra-high-performance web framework built specifically for **Free-Threaded Python 3.14+ (No GIL)**. 
+Welcome to the [PyBerry](https://pypi.org/project/pyberry-framework/) technical documentation. PyBerry is an experimental, ultra-high-performance web framework built specifically for that missing speed of Cython in popular Python web frameworks. 
 
-By combining the **Rust Server Gateway Interface (RSGI)** via Granian, **Cython Ahead-Of-Time (AOT) compilation**, and a custom **C-based Radix Tree Router**, PyBerry regularly exceeds 100,000 Requests/sec on a single worker process locally.
+By combining the **Rust Server Gateway Interface (RSGI)** via Granian, **Cython Ahead-Of-Time (AOT) compilation**, and a custom **C-based Radix Tree Router**, PyBerry regularly exceeds 30,000 Requests/sec on a single worker process locally, sometimes more. 
 
 ## Key Features
-- **Free-Threaded Architecture (No GIL):** Utilizes Python 3.13/3.14+ free-threading for massive concurrent performance within a single worker process.
+
 - **AOT Compilation (Cython):** Transpiles Python dataclasses and logic directly into C extensions (`@cython.cclass`), compiling the entire application ahead-of-time for maximum speed.
 - **Rust-Powered Networking (Granian & RSGI):** Uses Granian's RSGI server interface to bypass slow WSGI/ASGI translation and directly feed memory views from Rust to Python.
 - **C-Implemented Radix Router:** High-performance, O(K) complexity routing engine written in native C for instant path resolution, complete with dynamic path variables (e.g. `/users/{id}`) support.

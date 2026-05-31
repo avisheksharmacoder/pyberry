@@ -20,13 +20,12 @@ pyberry build user_app.py
 Starts the production server using Granian.
 
 **Under the hood:**
-1. Automatically sets `PYTHON_GIL=0` in the environment to enable Free-Threaded processing.
-2. Sets the `PYTHONPATH` to include the `.berry_build` directory.
-3. Creates a `run_wrapper.py` that imports your compiled application.
-4. Spawns `granian` using the `rsgi` interface.
+1. Sets the `PYTHONPATH` to include the `.berry_build` directory.
+2. Creates a `run_wrapper.py` that imports your compiled application.
+3. Spawns `granian` using the `rsgi` interface.
 
 **Options:**
-- `--workers <N>`: Sets the number of worker processes. Default is `1`. Due to the GIL-less architecture, a single worker is often capable of saturating local hardware limits.
+- `--workers <N>`: Sets the number of worker processes. Default is `1`. A single worker is often capable of saturating local hardware limits.
 
 **Usage:**
 ```bash
@@ -39,7 +38,7 @@ Starts the server in development mode.
 **Under the hood:**
 1. Skips the AOT compilation step for faster startup.
 2. Runs the code using the standard Python interpreter instead of the compiled `.so` extension.
-3. Attempts to enable hot-reloading (Note: Granian currently disables hot-reloading when free-threaded Python is active).
+3. Attempts to enable hot-reloading.
 
 **Usage:**
 ```bash
@@ -66,11 +65,9 @@ pyberry migrate --file custom_schema.sql
 Performs a comprehensive system check to ensure all dependencies for PyBerry's maximum performance are met across Linux, macOS, and Windows.
 
 **What it checks:**
-1. **Python version:** Checks if you're on Python 3.13+ for free-threading support.
-2. **Free-threading / GIL status:** Verifies that your Python executable is actually running with the GIL disabled.
-3. **Granian:** Ensures the Granian RSGI web server is installed.
-4. **Cython:** Confirms Cython is available in your environment for AOT transpilation.
-5. **C Compiler:** Checks for `gcc`/`clang` on Linux/macOS, or `cl.exe` (MSVC) on Windows to ensure C extensions can be successfully compiled.
+1. **Granian:** Ensures the Granian RSGI web server is installed.
+2. **Cython:** Confirms Cython is available in your environment for AOT transpilation.
+3. **C Compiler:** Checks for `gcc`/`clang` on Linux/macOS, or `cl.exe` (MSVC) on Windows to ensure C extensions can be successfully compiled.
 
 **Usage:**
 ```bash

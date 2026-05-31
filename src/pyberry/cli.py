@@ -126,7 +126,7 @@ Here are the main commands you can use with your PyBerry project:
 - **`pyberry build main.py`**: Transpile your application using Cython for production (maximum performance).
 - **`pyberry run`**: Run the production build of your application (requires `pyberry build` to be run first).
 - **`pyberry migrate`**: Run the `db/initial_schema.sql` file to setup your database.
-- **`pyberry check`**: Verify that your system meets all requirements for optimal PyBerry performance (Python 3.13+ free-threaded, Cython, C compiler).
+- **`pyberry check`**: Verify that your system meets all requirements for optimal PyBerry performance (Python 3.13+, Cython, C compiler).
 """
     with open(os.path.join(base_dir, "docs.md"), "w") as f:
         f.write(docs_code)
@@ -189,7 +189,7 @@ from Cython.Build import cythonize
 setup(
     ext_modules=cythonize(
 {ext_list_str},
-        compiler_directives={{"language_level": "3", "freethreading_compatible": True}}
+        compiler_directives={{"language_level": "3"}}
     ),
     script_args=["build_ext", "--inplace"]
 )
@@ -207,7 +207,6 @@ def run(args):
     print(f"{GREEN}  - Event Loop:  uvloop{RESET}")
     print(f"{GREEN}  - Interface:   RSGI{RESET}")
     env = os.environ.copy()
-    env["PYTHON_GIL"] = "0"
     env["PYTHONPATH"] = "src:.:.berry_build"
     
     try:
@@ -235,7 +234,6 @@ def dev(args):
     print(f"{RED}  - Event Loop:  uvloop{RESET}")
     print(f"{RED}  - Interface:   RSGI{RESET}")
     env = os.environ.copy()
-    env["PYTHON_GIL"] = "0"
     env["PYTHONPATH"] = "src:.:.berry_build"
     
     app_module = args.app.replace(".py", "").replace("/", ".")
@@ -250,12 +248,13 @@ from pyberry.core.rsgi import app
         f.write(wrapper_code)
         
     import sysconfig
+    is_free_threaded = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
     
     cmd = ["granian", "--interface", "rsgi", "--workers", "1", "--loop", "uvloop"]
-    if not sysconfig.get_config_var('Py_GIL_DISABLED'):
+    if not is_free_threaded:
         cmd.append("--reload")
     else:
-        print(f"{RED}[pyberry] Hot Reloading is disabled on free-threaded Python{RESET}")
+        print(f"{RED}[WARNING] Hot reloading (--reload) is disabled on free-threaded Python builds.{RESET}")
     
     cmd.append("dev_wrapper:app")
     
@@ -264,7 +263,6 @@ from pyberry.core.rsgi import app
 def check(args):
     import platform
     import shutil
-    import sysconfig
     
     print(f"{GREEN}[pyberry] Checking system requirements...{RESET}")
     all_good = True
@@ -275,19 +273,10 @@ def check(args):
     if py_version.major == 3 and py_version.minor >= 13:
         print(f" {GREEN}[OK]{RESET}")
     else:
-        print(f" {RED}[WARNING] Python 3.13+ recommended for free-threading{RESET}")
+        print(f" {RED}[WARNING] Python 3.13+ recommended{RESET}")
         all_good = False
         
-    # 2. Free-threading
-    gil_disabled = sysconfig.get_config_var('Py_GIL_DISABLED')
-    print("Free-threaded (GIL disabled):", end="")
-    if gil_disabled:
-        print(f" {GREEN}[OK]{RESET}")
-    else:
-        print(f" {RED}[WARNING] GIL is not disabled. Performance will be degraded.{RESET}")
-        all_good = False
-        
-    # 3. Granian
+    # 2. Granian
     print("Granian installed:", end="")
     if shutil.which("granian"):
         print(f" {GREEN}[OK]{RESET}")
@@ -295,7 +284,7 @@ def check(args):
         print(f" {RED}[MISSING] Please run: pip install granian{RESET}")
         all_good = False
         
-    # 4. Cython
+    # 3. Cython
     print("Cython installed:", end="")
     try:
         import cython
@@ -304,7 +293,7 @@ def check(args):
         print(f" {RED}[MISSING] Please run: pip install cython{RESET}")
         all_good = False
         
-    # 5. C Compiler
+    # 4. C Compiler
     system = platform.system()
     if system == "Windows":
         print("C Compiler (MSVC):", end="")

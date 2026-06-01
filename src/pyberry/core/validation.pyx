@@ -82,13 +82,13 @@ cpdef dict validate_data(dict schema, dict data):
             elif type_enum == TYPE_BOOL:
                 val = str(val).lower() in ('true', '1', 'yes', 't', 'y')
             elif type_enum == TYPE_STR:
-                if not isinstance(val, str):
+                if type(val) is not str:
                     val = str(val)
             elif type_enum == TYPE_LIST:
-                if not isinstance(val, list):
+                if type(val) is not list:
                     raise UnprocessableEntityException(f"Field '{name}' must be a list")
             elif type_enum == TYPE_DICT:
-                if not isinstance(val, dict):
+                if type(val) is not dict:
                     raise UnprocessableEntityException(f"Field '{name}' must be a dict")
                     
             validated[name] = val
@@ -100,17 +100,15 @@ cpdef dict validate_data(dict schema, dict data):
                 
     return validated
 
-class BaseModel:
-    _schema = None
-    
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        cls._schema = compile_schema(cls)
-        
+cdef dict _schema_cache = {}
+
+cdef class BaseModel:
     def __init__(self, **kwargs):
-        if self.__class__._schema is None:
-            self.__class__._schema = compile_schema(self.__class__)
+        cdef dict schema
+        if self.__class__ not in _schema_cache:
+            _schema_cache[self.__class__] = compile_schema(self.__class__)
             
-        validated = validate_data(self.__class__._schema, kwargs)
+        schema = _schema_cache[self.__class__]
+        validated = validate_data(schema, kwargs)
         for k, v in validated.items():
             setattr(self, k, v)

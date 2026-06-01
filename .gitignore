@@ -67,6 +67,8 @@ coverage.xml
 *.smd
 .pytest_cache/
 test_granian.py
+test_cdef.c
+test_cdef.pyx
 
 # Node modules for benchmark
 node_modules/

@@ -10,3 +10,6 @@ cdef enum FieldType:
 
 cpdef dict compile_schema(object cls)
 cpdef dict validate_data(dict schema, dict data)
+
+cdef class BaseModel:
+    pass

@@ -125,13 +125,14 @@ cdef dict parse_qs_c(str qs):
 # ---------------------------------------------------------
 # A compiled C-function endpoint to demonstrate Phase 2
 # It acts as the "compiled user endpoint" holding a C-function pointer.
-cdef object hello_endpoint(Request req):
-    # Returns a Response object directly. 
-    # When transpiled later, this could be a coroutine.
-    return PyResponse(body="Hello from compiled C-endpoint via Radix Tree!", status=200)
+cdef object hello_endpoint(object scope, object proto):
+    # Write directly to Granian's Rust proto, zero allocations!
+    proto.response_str(status=200, headers=[], body="Hello from compiled C-endpoint via Radix Tree!")
+    return 200
 
-cdef object users_endpoint(Request req):
-    return PyResponse(body="Users endpoint hit!", status=200)
+cdef object users_endpoint(object scope, object proto):
+    proto.response_str(status=200, headers=[], body="Users endpoint hit!")
+    return 200
 
 # Register routes directly to C-function pointers
 _router.add_route("GET", "/", hello_endpoint)
@@ -215,7 +216,8 @@ async def app(scope, proto):
                         for name, p_type, schema in param_meta:
                             if schema is not None:
                                 msg = await proto()
-                                req._body = msg
+                                if req is not None:
+                                    req._body = msg
                                 if msg:
                                     parsed = fastjson.parse_model(p_type, schema, msg)
                                 else:
@@ -309,14 +311,16 @@ async def app(scope, proto):
             _rsgi_push_log(req_method, req_path, 404)
             return
             
-        req = PyRequest(scope, proto)
-        
         # Execute the C-function pointer directly (microsecond execution)
-        res = handler(req)
+        res = handler(scope, proto)
         
         # If it returns a coroutine, we await it (future-proofing)
         if hasattr(res, "__await__"):
             res = await res
+            
+        if type(res) is int:
+            _rsgi_push_log(req_method, req_path, <int>res)
+            return
             
         # Send the response back through Granian
         if isinstance(res.body, bytes):

@@ -2,7 +2,7 @@
 from pyberry.core.request cimport Request
 from cpython.ref cimport PyObject
 
-ctypedef object (*EndpointFunc)(Request req)
+ctypedef object (*EndpointFunc)(object scope, object proto)
 
 cdef struct RadixNode:
     char* path

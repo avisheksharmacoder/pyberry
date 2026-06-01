@@ -32,9 +32,13 @@ cdef RadixNode* create_node(const char* path, bint is_param):
         else:
             node.param_name = strdup(path)
             
-        py_name = node.param_name.decode('utf-8')
-        node.py_param_name = <PyObject*>py_name
-        Py_INCREF(<object>node.py_param_name)
+        try:
+            py_name = node.param_name.decode('utf-8')
+            node.py_param_name = <PyObject*>py_name
+            Py_INCREF(<object>node.py_param_name)
+        except Exception as e:
+            free_node(node)
+            raise e
             
     return node
 
@@ -68,6 +72,7 @@ cdef RadixNode* _insert_node(RadixNode* root, const char* path):
     cdef bint is_param
     cdef int i
     cdef bint found_child
+    cdef RadixNode* new_node
 
     while p[0] != b'\0':
         next_slash = p
@@ -76,6 +81,9 @@ cdef RadixNode* _insert_node(RadixNode* root, const char* path):
             
         segment_len = next_slash - p
         segment = <char*>malloc(segment_len + 1)
+        if segment == NULL:
+            raise MemoryError()
+            
         for i in range(segment_len):
             segment[i] = p[i]
         segment[segment_len] = b'\0'
@@ -94,15 +102,22 @@ cdef RadixNode* _insert_node(RadixNode* root, const char* path):
                     break
         
         if not found_child:
-            if current.num_children == 0:
-                current.children = <RadixNode**>malloc(sizeof(RadixNode*))
-            else:
-                current.children = <RadixNode**>realloc(current.children, (current.num_children + 1) * sizeof(RadixNode*))
-            
-            current.children[current.num_children] = create_node(segment, is_param)
-            current.num_children += 1
-            current = current.children[current.num_children - 1]
-            free(segment)
+            try:
+                new_node = create_node(segment, is_param)
+                if current.num_children == 0:
+                    current.children = <RadixNode**>malloc(sizeof(RadixNode*))
+                else:
+                    current.children = <RadixNode**>realloc(current.children, (current.num_children + 1) * sizeof(RadixNode*))
+                
+                if current.children == NULL:
+                    free_node(new_node)
+                    raise MemoryError()
+                    
+                current.children[current.num_children] = new_node
+                current.num_children += 1
+                current = current.children[current.num_children - 1]
+            finally:
+                free(segment)
             
         if next_slash[0] == b'\0':
             break
@@ -155,7 +170,7 @@ cdef EndpointFunc search(RadixNode* root, const char* path):
 
     return current.handler
 
-cdef int search_python_route(RadixNode* root, const char* path, dict out_params):
+cdef int search_python_route(RadixNode* root, const char* path, ExtractedParam* params, int* num_params):
     cdef RadixNode* current = root
     cdef const char* p = path
     if strcmp(path, "/") == 0:
@@ -168,7 +183,6 @@ cdef int search_python_route(RadixNode* root, const char* path, dict out_params)
     cdef int segment_len
     cdef int i
     cdef bint found_child
-    cdef object decoded_val
 
     while p[0] != b'\0':
         next_slash = p
@@ -181,8 +195,11 @@ cdef int search_python_route(RadixNode* root, const char* path, dict out_params)
         for i in range(current.num_children):
             if current.children[i].is_param or (strncmp(current.children[i].path, p, segment_len) == 0 and current.children[i].path[segment_len] == b'\0'):
                 if current.children[i].is_param and current.children[i].param_name != NULL:
-                    decoded_val = PyUnicode_FromStringAndSize(p, segment_len)
-                    out_params[<object>current.children[i].py_param_name] = decoded_val
+                    if num_params[0] < 16:
+                        params[num_params[0]].key = current.children[i].py_param_name
+                        params[num_params[0]].val_ptr = p
+                        params[num_params[0]].val_len = segment_len
+                        num_params[0] += 1
                 current = current.children[i]
                 found_child = 1
                 break
@@ -260,21 +277,26 @@ cdef class Router:
             if exact is not None:
                 return exact[0], exact[1], exact[2], exact[3]
             
-        cdef dict out_params = {}
+        cdef ExtractedParam params[16]
+        cdef int num_params = 0
         cdef const char* c_path = PyUnicode_AsUTF8(path)
         cdef int route_id = 0
         if method == "GET":
-            route_id = search_python_route(self.get_tree, c_path, out_params)
+            route_id = search_python_route(self.get_tree, c_path, params, &num_params)
         elif method == "POST":
-            route_id = search_python_route(self.post_tree, c_path, out_params)
+            route_id = search_python_route(self.post_tree, c_path, params, &num_params)
         elif method == "PUT":
-            route_id = search_python_route(self.put_tree, c_path, out_params)
+            route_id = search_python_route(self.put_tree, c_path, params, &num_params)
         elif method == "DELETE":
-            route_id = search_python_route(self.delete_tree, c_path, out_params)
+            route_id = search_python_route(self.delete_tree, c_path, params, &num_params)
         elif method == "PATCH":
-            route_id = search_python_route(self.patch_tree, c_path, out_params)
+            route_id = search_python_route(self.patch_tree, c_path, params, &num_params)
             
         if route_id > 0:
+            out_params = {}
+            for i in range(num_params):
+                out_params[<object>params[i].key] = PyUnicode_FromStringAndSize(params[i].val_ptr, params[i].val_len)
+            
             handler, param_meta, needs_req = self.python_routes_map[route_id]
             return handler, out_params, param_meta, needs_req
             

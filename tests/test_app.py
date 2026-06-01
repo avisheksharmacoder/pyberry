@@ -7,7 +7,7 @@ def test_get_decorator():
     def my_handler(req):
         return "get"
 
-    handler, path_params, param_meta = router.match_python_route("GET", "/test_get")
+    handler, path_params, param_meta, needs_req = router.match_python_route("GET", "/test_get")
     assert handler is not None
     assert handler(None) == "get"
     
@@ -16,6 +16,6 @@ def test_post_decorator():
     def my_handler(req):
         return "post"
 
-    handler, path_params, param_meta = router.match_python_route("POST", "/test_post")
+    handler, path_params, param_meta, needs_req = router.match_python_route("POST", "/test_post")
     assert handler is not None
     assert handler(None) == "post"

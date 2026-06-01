@@ -14,12 +14,17 @@ cdef struct RadixNode:
     char* param_name
     PyObject* py_param_name
 
+cdef struct ExtractedParam:
+    PyObject* key
+    const char* val_ptr
+    int val_len
+
 cdef RadixNode* create_node(const char* path, bint is_param)
 cdef void free_node(RadixNode* node)
 cdef void insert(RadixNode* root, const char* path, EndpointFunc handler)
 cdef void insert_python_route(RadixNode* root, const char* path, int route_id)
 cdef EndpointFunc search(RadixNode* root, const char* path)
-cdef int search_python_route(RadixNode* root, const char* path, dict out_params)
+cdef int search_python_route(RadixNode* root, const char* path, ExtractedParam* params, int* num_params)
 
 cdef class Router:
     cdef RadixNode* get_tree

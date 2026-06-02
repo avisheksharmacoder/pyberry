@@ -69,7 +69,7 @@ cpdef object loads(bytes data):
     yyjson_doc_free(doc)
     return result
 
-cpdef object parse_model(object p_type, dict schema, bytes data):
+cpdef object parse_model(object p_type, dict schema, tuple req_fields, tuple def_fields, bytes data):
     from pyberry.exceptions import UnprocessableEntityException
     cdef size_t length = len(data)
     cdef const char* c_data = data
@@ -140,12 +140,12 @@ cpdef object parse_model(object p_type, dict schema, bytes data):
             
         key = yyjson_obj_iter_next(&obj_iter)
         
-    for schema_key in getattr(p_type, '_required_fields', ()):
+    for schema_key in req_fields:
         if not hasattr(instance, schema_key):
             yyjson_doc_free(doc)
             raise UnprocessableEntityException(f"Field '{schema_key}' is required")
             
-    for schema_key, default_val in getattr(p_type, '_default_fields', ()):
+    for schema_key, default_val in def_fields:
         if default_val is not None and not hasattr(instance, schema_key):
             setattr(instance, schema_key, default_val)
                 

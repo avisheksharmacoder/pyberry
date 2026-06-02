@@ -213,13 +213,13 @@ async def app(scope, proto):
                     if param_meta:
                         args_list = [req] if needs_req else []
                         query_params = None
-                        for name, p_type, schema in param_meta:
+                        for name, p_type, schema, req_fields, def_fields in param_meta:
                             if schema is not None:
                                 msg = await proto()
                                 if req is not None:
                                     req._body = msg
                                 if msg:
-                                    parsed = fastjson.parse_model(p_type, schema, msg)
+                                    parsed = fastjson.parse_model(p_type, schema, req_fields, def_fields, msg)
                                 else:
                                     parsed = None
                                 args_list.append(parsed)

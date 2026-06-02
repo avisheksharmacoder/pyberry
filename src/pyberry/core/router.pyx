@@ -242,7 +242,9 @@ cdef class Router:
                     if schema is None:
                         schema = compile_schema(p_type)
                         
-                param_meta_list.append((name, p_type, schema))
+                req_fields = getattr(p_type, '_required_fields', ()) if schema is not None else ()
+                def_fields = getattr(p_type, '_default_fields', ()) if schema is not None else ()
+                param_meta_list.append((name, p_type, schema, req_fields, def_fields))
                 
         param_meta = tuple(param_meta_list)
         needs_req = "req" in sig.parameters

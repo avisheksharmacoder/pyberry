@@ -23,7 +23,7 @@ extensions = [
 
 setup(
     name="pyberry-framework",
-    version="0.1.1",
+    version="0.1.2",
     author="Avishek Sharma",
     author_email="avisheksharmacoder@gmail.com",
     description="A fast, Cython compiled async web framework",

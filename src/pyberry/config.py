@@ -12,6 +12,7 @@ class Config:
         
         # Zero-latency background logging
         self.logging_enabled = True
+        self.stdout_logging_enabled = True
         
         # LibSQL configuration
         self.libsql_url = "file:db/local.db"
@@ -23,6 +24,7 @@ class Config:
             self.cors_enabled = getattr(security, 'CORS_ENABLED', True)
             self.allowed_hosts = getattr(security, 'ALLOWED_HOSTS', ["*"])
             self.logging_enabled = getattr(security, 'LOGGING_ENABLED', True)
+            self.stdout_logging_enabled = getattr(security, 'STDOUT_LOGGING_ENABLED', True)
             
             # New Security Features
             self.security_headers_enabled = getattr(security, 'SECURITY_HEADERS_ENABLED', True)

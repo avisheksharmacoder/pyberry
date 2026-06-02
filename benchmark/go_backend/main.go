@@ -41,5 +41,8 @@ func main() {
 		}
 	})
 
-	r.Run(":8000")
+	err := r.Run(":8000")
+	if err != nil {
+		panic(err)
+	}
 }

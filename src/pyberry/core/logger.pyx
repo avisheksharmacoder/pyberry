@@ -10,6 +10,7 @@ cdef extern from *:
     #include <time.h>
     #include <unistd.h>
     #include <pthread.h>
+    #include <string.h>
 
     #define LOG_QUEUE_SIZE 8192
 
@@ -28,6 +29,9 @@ cdef extern from *:
     } LogRingBuffer;
 
     static LogRingBuffer log_buffer = {0};
+    static int c_stdout_logging_enabled = 1;
+    static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_cond_t log_cond = PTHREAD_COND_INITIALIZER;
 
     static inline int push_log_c(const char* method, const char* path, int status) {
         size_t current_tail = atomic_load_explicit(&log_buffer.tail, memory_order_relaxed);
@@ -38,17 +42,22 @@ cdef extern from *:
             return 0; // Full
         }
         
-        size_t i = 0;
-        while(i < 15 && method[i] != '\\0') { log_buffer.entries[current_tail].method[i] = method[i]; i++; }
-        log_buffer.entries[current_tail].method[i] = '\\0';
+        int was_empty = (current_head == current_tail);
         
-        i = 0;
-        while(i < 1023 && path[i] != '\\0') { log_buffer.entries[current_tail].path[i] = path[i]; i++; }
-        log_buffer.entries[current_tail].path[i] = '\\0';
+        strncpy(log_buffer.entries[current_tail].method, method, 15);
+        log_buffer.entries[current_tail].method[15] = '\\0';
+        
+        strncpy(log_buffer.entries[current_tail].path, path, 1023);
+        log_buffer.entries[current_tail].path[1023] = '\\0';
         
         log_buffer.entries[current_tail].status = status;
         
         atomic_store_explicit(&log_buffer.tail, next_tail, memory_order_release);
+        
+        if (was_empty) {
+            pthread_cond_signal(&log_cond);
+        }
+        
         return 1; // Success
     }
 
@@ -102,15 +111,21 @@ cdef extern from *:
                 if (entry.status >= 400 && entry.status < 500) status_color = C_STATUS_400;
                 else if (entry.status >= 500) status_color = C_STATUS_500;
                 
-                fprintf(stdout, "[%s] %s%s%s %s - %s%d%s\\n", 
-                    time_buf, method_color, entry.method, C_RESET, entry.path, status_color, entry.status, C_RESET);
+                if (c_stdout_logging_enabled) {
+                    fprintf(stdout, "[%s] %s%s%s %s - %s%d%s\\n", 
+                        time_buf, method_color, entry.method, C_RESET, entry.path, status_color, entry.status, C_RESET);
+                }
                 
                 if (log_file) {
                     fprintf(log_file, "[%s] %s %s - %d\\n", time_buf, entry.method, entry.path, entry.status);
                     // Let libc buffer the file writes to avoid OS bottlenecks
                 }
             } else {
-                usleep(1000); // 1ms sleep
+                pthread_mutex_lock(&log_mutex);
+                while (atomic_load_explicit(&log_buffer.head, memory_order_relaxed) == atomic_load_explicit(&log_buffer.tail, memory_order_acquire)) {
+                    pthread_cond_wait(&log_cond, &log_mutex);
+                }
+                pthread_mutex_unlock(&log_mutex);
             }
         }
         if (log_file) fclose(log_file);
@@ -129,11 +144,13 @@ cdef extern from *:
     """
     void start_logger_c()
     int push_log_c(const char* method, const char* path, int status) nogil
+    int c_stdout_logging_enabled
 
 cdef bint c_logging_enabled = True
 
 try:
     c_logging_enabled = bool(config.logging_enabled)
+    c_stdout_logging_enabled = 1 if getattr(config, 'stdout_logging_enabled', True) else 0
 except Exception:
     pass
 

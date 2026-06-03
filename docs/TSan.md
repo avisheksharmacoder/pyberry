@@ -76,3 +76,21 @@ A mandatory step before production deployment. The CLI automatically transpiles 
 The production deployment command. The CLI scans for the presence of the `build.lock` file. 
 - **Enforcement**: If the lockfile is missing, the deployment throws a fatal error and refuses to boot (`FATAL: Cannot start in production mode. TSan audit has not been passed.`).
 - **Execution**: If the lockfile is present, it silently recompiles the application with maximum optimizations (`-O3 -march=native`), stripping all TSan overhead, and launches Granian for peak performance.
+
+---
+
+## Phase 5: The CI/CD Shield (GitHub Actions)
+
+To guarantee that no developer accidentally merges a data race into the `main` branch, PyBerry employs an automated "Crucible" pipeline in GitHub Actions (`.github/workflows/tsan_audit.yml`). This acts as our final defense layer.
+
+### The Pipeline Architecture
+The workflow triggers on pull requests to the `main` branch and executes the following steps:
+1. **Environment Setup**: Provisions an Ubuntu runner, Python 3.12, and installs the necessary Clang/GCC compilers.
+2. **Strict Compilation**: Compiles all core Cython extensions with `PYBERRY_TSAN="1"` to inject ThreadSanitizer flags.
+3. **Audit Execution**: Runs the `pytest` suite. If ThreadSanitizer detects any data races during execution, it immediately crashes the job, marking the pull request as failed and preventing the merge.
+
+### The Controlled Escape Hatch
+We recognize that sometimes a known race condition might be intentional (or a false positive that needs temporary bypassing). The pipeline includes an "escape hatch" mechanism:
+- If a developer adds the `bypass-tsan` label to the pull request, the pipeline detects this event.
+- The pipeline gracefully skips the strict TSan audit and marks the CI check as successful.
+- This ensures that any bypass is a conscious, visible, and deliberate action taken by the developer, rather than an accidental merge of memory-unsafe code.

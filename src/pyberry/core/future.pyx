@@ -1,6 +1,7 @@
 # cython: language_level=3
 import cython
 import os
+import pyberry_rust
 
 cdef extern from "Python.h":
     ctypedef struct PyObject
@@ -118,24 +119,30 @@ def c_drain_queue_callback():
 
 def init_io_bridge(loop):
     """
-    Initializes the C-level eventfd and hooks it into the asyncio/uvloop event loop.
-    Must be called during application initialization.
+    Initializes the C-level eventfd, hooks it into uvloop, 
+    and passes the memory boundaries to Rust.
     """
     fd = init_eventfd_c()
     loop.add_reader(fd, c_drain_queue_callback)
-
-def simulate_rust_tokio_io(future, result):
-    """
-    Mock function to simulate what Rust Tokio would do.
-    """
-    Py_INCREF(future)
-    Py_INCREF(result)
     
-    # If the queue is full, we must undo the reference increment to avoid memory leaks
-    if not push_io_c(future, result):
-        Py_DECREF(future)
-        Py_DECREF(result)
-        raise RuntimeError("Tokio I/O bridge ring buffer is full")
+    # Cast the C-function push_io_c to a size_t (usize in Rust)
+    cdef size_t push_fn_ptr = <size_t>&push_io_c
+    
+    # Initialize the Rust engine with our C pointers
+    pyberry_rust.init_rust_engine(push_fn_ptr, fd)
+
+def execute_rust_io(future, str payload):
+    """
+    The new hot-path submitter.
+    """
+    # 1. INCREF the future so it survives until Rust returns it
+    Py_INCREF(future)
+    
+    # 2. Get the raw memory address of the future object
+    cdef size_t future_ptr = <size_t><PyObject*>future
+    
+    # 3. Hand off to Rust (Non-blocking, instant return)
+    pyberry_rust.submit_io_task(future_ptr, payload)
 
 cdef class FastFuture:
     """

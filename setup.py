@@ -1,5 +1,10 @@
 import os
+
+# Allow PyO3 to build on Python 3.14 by suppressing the version check
+os.environ["PYO3_USE_ABI3_FORWARD_COMPATIBILITY"] = "1"
+
 from setuptools import setup, Extension
+from setuptools_rust import RustExtension, Binding
 from Cython.Build import cythonize
 
 # Read the README for the PyPI long description
@@ -75,6 +80,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     package_dir={"": "src"},
+    packages=["pyberry", "pyberry.compiler", "pyberry.core"],
     ext_modules=cythonize(
         extensions,
         compiler_directives={
@@ -84,6 +90,9 @@ setup(
         },
         force=True
     ),
+    rust_extensions=[
+        RustExtension("pyberry_rust", path="src/pyberry_rust/Cargo.toml", binding=Binding.PyO3)
+    ],
     entry_points={
         'console_scripts': [
             'pyberry=pyberry.cli:main',

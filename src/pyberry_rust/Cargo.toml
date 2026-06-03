@@ -1,0 +1,15 @@
+[package]
+name = "pyberry_rust"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "pyberry_rust"
+# Compile as a dynamic library compatible with Python C-API
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.21.0", features = ["extension-module"] }
+tokio = { version = "1.37.0", features = ["full"] }
+libc = "0.2"
+once_cell = "1.19.0" # For our global Tokio runtime

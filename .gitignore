@@ -87,3 +87,6 @@ app5*/
 
 # TSan Workspaces
 .tsan_env/
+
+# Rust Build Artifacts
+src/pyberry_rust/target/

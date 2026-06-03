@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=42", "Cython>=3.0.0"]
+requires = ["setuptools>=42", "Cython>=3.0.0", "setuptools-rust"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,7 +10,8 @@ dependencies = [
     "granian",
     "cython",
     "setuptools",
-    "libsql-client"
+    "libsql-client",
+    "setuptools-rust"
 ]
 
 [project.scripts]

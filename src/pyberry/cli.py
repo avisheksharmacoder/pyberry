@@ -2,6 +2,7 @@ import argparse
 import subprocess
 import sys
 import os
+import shutil
 
 RED = "\033[91m"
 GREEN = "\033[92m"
@@ -17,6 +18,7 @@ def create_app(args):
         
     # Create db folder
     os.makedirs(os.path.join(base_dir, "db"), exist_ok=True)
+    os.makedirs(os.path.join(base_dir, "tests"), exist_ok=True) # Create tests folder by default
     
     print(f"{GREEN}[pyberry] Initializing project in {base_dir}...{RESET}")
     
@@ -43,58 +45,34 @@ async def get_users(req: Request):
         return JSONResponse({"status": "ok", "users": users})
     except Exception as e:
         return JSONResponse({"status": "error", "message": str(e)}, status=500)
-
-# The Granian entrypoint
-# Run with: pyberry dev main.py
 """
     with open(os.path.join(base_dir, "main.py"), "w") as f:
         f.write(main_code)
+
+    # tests/test_app.py
+    test_code = """def test_example():
+    assert True
+"""
+    with open(os.path.join(base_dir, "tests", "test_app.py"), "w") as f:
+        f.write(test_code)
         
     # security.py
     security_code = """# security.py
 # High-grade security configurations for PyBerry
 
-# Allowed Hosts prevents Host Header Injection attacks (BadHost vulnerabilities).
-# Only requests with a matching Host header will be processed.
-# In production, replace "localhost" and "127.0.0.1" with your actual domain names.
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
-
-# Strict CORS policy
 CORS_ENABLED = True
-
-# Turn off for peak benchmarking (RPS)
 LOGGING_ENABLED = True
-
-# -------------------------------------------------------------------------
-# Deep Level Security Options
-# -------------------------------------------------------------------------
-
-# Automatically injects HSTS, X-Frame-Options, Content-Security-Policy, etc.
 SECURITY_HEADERS_ENABLED = True
 HSTS_MAX_AGE = 31536000
 X_FRAME_OPTIONS = "DENY"
 CONTENT_SECURITY_POLICY = "default-src 'self'"
-
-# Maximum allowed payload size (in bytes) to prevent Memory Exhaustion/DoS.
 MAX_BODY_SIZE = 1048576  # 1MB
-
-# Protect against directory traversal attacks in URLs (e.g., %2e%2e%2f)
 PATH_TRAVERSAL_PROTECTION = True
-
-# Rate Limiting (In-Memory).
-# NOTE: Rate limiting is DISABLED by default so it doesn't affect benchmarking.
-# Be sure to enable this in Production to protect your endpoints.
 RATE_LIMIT_ENABLED = False
 RATE_LIMIT_REQUESTS = 100
 RATE_LIMIT_WINDOW = 60
-
-# -------------------------------------------------------------------------
-# Database Options (libsql)
-# -------------------------------------------------------------------------
-# Default to local db for development.
-# For production, you can replace this with your Turso DB URL (e.g., libsql://my-db-user.turso.io)
 LIBSQL_URL = "file:db/local.db"
-# Provide the auth token here if using a remote Turso DB.
 LIBSQL_AUTH_TOKEN = None
 """
     with open(os.path.join(base_dir, "security.py"), "w") as f:
@@ -118,15 +96,14 @@ INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com') ON CONFLIC
 
 Welcome to your new PyBerry application!
 
-## CLI Commands
+## The 3-Tier CLI Lifecycle
 
-Here are the main commands you can use with your PyBerry project:
+Here are the main commands you must use with your PyBerry project to guarantee memory safety:
 
-- **`pyberry dev main.py`**: Start the development server with hot-reloading (if supported by your Python version).
-- **`pyberry build main.py`**: Transpile your application using Cython for production (maximum performance).
-- **`pyberry run`**: Run the production build of your application (requires `pyberry build` to be run first).
+- **`pyberry run main.py --dev`**: The Playground. Start the development server with hot-reloading. The GIL handles Python memory safety.
+- **`pyberry build main.py --audit`**: The Crucible. Mandatory before deployment. Transpiles your code and runs ThreadSanitizer (TSan) against your `tests/` folder. Generates a `build.lock` on success.
+- **`pyberry start --prod`**: The Rocket. Deploys the optimized server, but ONLY if the `build.lock` audit tag exists.
 - **`pyberry migrate`**: Run the `db/initial_schema.sql` file to setup your database.
-- **`pyberry check`**: Verify that your system meets all requirements for optimal PyBerry performance (Python 3.13+, Cython, C compiler).
 """
     with open(os.path.join(base_dir, "docs.md"), "w") as f:
         f.write(docs_code)
@@ -137,102 +114,17 @@ Here are the main commands you can use with your PyBerry project:
         
     print(f"{GREEN}[pyberry] Project initialized successfully!{RESET}")
 
-def build(args):
-    print(f"{GREEN}[pyberry] Building {args.app} for PRODUCTION...{RESET}")
-    from pyberry.compiler.transpile import transpile_file
-    
-    base_dir = os.path.dirname(os.path.abspath(args.app))
-    if not base_dir:
-        base_dir = "."
-    
-    ignore_dirs = {".git", ".berry_build", "__pycache__", "venv", ".venv", "env", ".env", "src", "lib", "bin", "include", "share", ".pytest_cache"}
-    py_files = []
-    
-    for root, dirs, files in os.walk(base_dir):
-        dirs[:] = [d for d in dirs if d not in ignore_dirs and not d.startswith('.')]
-        for file in files:
-            if file.endswith(".py") and file != "setup.py":
-                full_path = os.path.join(root, file)
-                rel_path = os.path.relpath(full_path, base_dir)
-                if "pyberry" in rel_path.split(os.sep):
-                    continue
-                py_files.append(rel_path)
-                
-    compiled_modules = []
-    for rel_path in py_files:
-        in_path = os.path.join(base_dir, rel_path)
-        out_path = os.path.join(base_dir, ".berry_build", rel_path)
-        os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        try:
-            transpile_file(in_path, out_path)
-            # module name for Cython extension
-            module_name = rel_path.replace(".py", "").replace(os.sep, ".")
-            # Cython uses posix paths even on windows inside setup.py usually, but let's be safe
-            compiled_modules.append((module_name, rel_path.replace("\\", "/")))
-        except Exception as e:
-            print(f"{RED}[WARNING] Failed to transpile {rel_path}: {e}{RESET}")
-            
-    # Save the entrypoint module name
-    entry_module = os.path.relpath(os.path.abspath(args.app), base_dir).replace(".py", "").replace(os.sep, ".")
-    with open(os.path.join(base_dir, ".berry_build", "entrypoint.txt"), "w") as f:
-        f.write(entry_module)
-    
-    ext_list_str = "[\n"
-    for mod_name, rel_path in compiled_modules:
-        ext_list_str += f'        Extension("{mod_name}", ["{rel_path}"]),\n'
-    ext_list_str += "    ]"
-    
-    setup_code = f"""
-from setuptools import setup, Extension
-from Cython.Build import cythonize
-
-setup(
-    ext_modules=cythonize(
-{ext_list_str},
-        compiler_directives={{"language_level": "3"}}
-    ),
-    script_args=["build_ext", "--inplace"]
-)
-"""
-    with open(os.path.join(base_dir, ".berry_build", "setup.py"), "w") as f:
-        f.write(setup_code)
-        
-    subprocess.run([sys.executable, "setup.py", "build_ext", "--inplace"], cwd=os.path.join(base_dir, ".berry_build"), check=True)
-    print(f"{GREEN}[pyberry] Build complete! You can now run `pyberry run`{RESET}")
 
 def run(args):
-    print(f"{GREEN}[pyberry] Starting in PRODUCTION mode...{RESET}")
+    if not getattr(args, "dev", False):
+        print(f"{RED}[ERROR] Please use `pyberry run <app> --dev` for the Playground mode, or `pyberry start --prod` for deployment.{RESET}")
+        sys.exit(1)
+        
+    print(f"{GREEN}[pyberry] Starting in DEV mode (The Playground)...{RESET}")
     print(f"{GREEN}  - Server:      Granian{RESET}")
-    print(f"{GREEN}  - Workers:     {args.workers}{RESET}")
+    print(f"{GREEN}  - Workers:     1{RESET}")
     print(f"{GREEN}  - Event Loop:  uvloop{RESET}")
     print(f"{GREEN}  - Interface:   RSGI{RESET}")
-    env = os.environ.copy()
-    env["PYTHONPATH"] = "src:.:.berry_build"
-    
-    try:
-        with open(".berry_build/entrypoint.txt", "r") as f:
-            entry_module = f.read().strip()
-    except FileNotFoundError:
-        print(f"{RED}[ERROR] Could not find .berry_build/entrypoint.txt. Did you run `pyberry build` first?{RESET}")
-        sys.exit(1)
-    
-    wrapper_code = f"""
-import sys
-import {entry_module}
-from pyberry.core.rsgi import app
-"""
-    os.makedirs(".berry_build", exist_ok=True)
-    with open(".berry_build/run_wrapper.py", "w") as f:
-        f.write(wrapper_code)
-        
-    subprocess.run(["granian", "--interface", "rsgi", "--workers", str(args.workers), "--loop", "uvloop", "run_wrapper:app"], env=env, check=True)
-
-def dev(args):
-    print(f"{RED}[pyberry] Starting in DEV mode (Hot Reloading)...{RESET}")
-    print(f"{RED}  - Server:      Granian{RESET}")
-    print(f"{RED}  - Workers:     1{RESET}")
-    print(f"{RED}  - Event Loop:  uvloop{RESET}")
-    print(f"{RED}  - Interface:   RSGI{RESET}")
     env = os.environ.copy()
     env["PYTHONPATH"] = "src:.:.berry_build"
     
@@ -259,6 +151,156 @@ from pyberry.core.rsgi import app
     cmd.append("dev_wrapper:app")
     
     subprocess.run(cmd, env=env, check=True)
+
+
+def build(args):
+    if not getattr(args, "audit", False):
+        print(f"{RED}[ERROR] You must pass the --audit flag (`pyberry build <app> --audit`) to run the mandatory TSan Crucible Audit.{RESET}")
+        sys.exit(1)
+        
+    base_dir = os.path.dirname(os.path.abspath(args.app))
+    if not base_dir:
+        base_dir = "."
+        
+    tests_dir = os.path.join(base_dir, "tests")
+    if not os.path.exists(tests_dir) or not os.path.isdir(tests_dir):
+        print(f"{RED}[ERROR] A 'tests/' directory is required in your project root to run the TSan audit.{RESET}")
+        print(f"{RED}Please create a 'tests/' folder with your pytest code and try again.{RESET}")
+        sys.exit(1)
+
+    print(f"{GREEN}[pyberry] Building {args.app} for AUDIT (The Crucible)...{RESET}")
+    from pyberry.compiler.transpile import transpile_file
+    
+    ignore_dirs = {".git", ".berry_build", "__pycache__", "venv", ".venv", "env", ".env", "src", "lib", "bin", "include", "share", ".pytest_cache", "tests"}
+    py_files = []
+    
+    for root, dirs, files in os.walk(base_dir):
+        dirs[:] = [d for d in dirs if d not in ignore_dirs and not d.startswith('.')]
+        for file in files:
+            if file.endswith(".py") and file != "setup.py":
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, base_dir)
+                if "pyberry" in rel_path.split(os.sep):
+                    continue
+                py_files.append(rel_path)
+                
+    compiled_modules = []
+    for rel_path in py_files:
+        in_path = os.path.join(base_dir, rel_path)
+        out_path = os.path.join(base_dir, ".berry_build", rel_path)
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        try:
+            transpile_file(in_path, out_path)
+            module_name = rel_path.replace(".py", "").replace(os.sep, ".")
+            compiled_modules.append((module_name, rel_path.replace("\\", "/")))
+        except Exception as e:
+            print(f"{RED}[WARNING] Failed to transpile {rel_path}: {e}{RESET}")
+            
+    # Save the entrypoint module name
+    entry_module = os.path.relpath(os.path.abspath(args.app), base_dir).replace(".py", "").replace(os.sep, ".")
+    with open(os.path.join(base_dir, ".berry_build", "entrypoint.txt"), "w") as f:
+        f.write(entry_module)
+    
+    ext_list_str = "[\n"
+    for mod_name, rel_path in compiled_modules:
+        ext_list_str += f'        Extension("{mod_name}", ["{rel_path}"]),\n'
+    ext_list_str += "    ]"
+    
+    setup_code = f"""
+from setuptools import setup, Extension
+from Cython.Build import cythonize
+import os
+
+compile_flags = ["-fsanitize=thread", "-g", "-O1", "-fPIC"] if os.environ.get("PYBERRY_TSAN", "0") == "1" else ["-O3", "-march=native", "-ffast-math"]
+link_flags = ["-fsanitize=thread"] if os.environ.get("PYBERRY_TSAN", "0") == "1" else []
+
+extensions = {ext_list_str}
+for ext in extensions:
+    ext.extra_compile_args = compile_flags
+    ext.extra_link_args = link_flags
+
+setup(
+    ext_modules=cythonize(
+        extensions,
+        compiler_directives={{"language_level": "3"}},
+        force=True
+    ),
+    script_args=["build_ext", "--inplace"]
+)
+"""
+    with open(os.path.join(base_dir, ".berry_build", "setup.py"), "w") as f:
+        f.write(setup_code)
+        
+    print(f"{GREEN}[pyberry] Compiling with ThreadSanitizer enabled...{RESET}")
+    env = os.environ.copy()
+    env["PYBERRY_TSAN"] = "1"
+    subprocess.run([sys.executable, "setup.py", "build_ext", "--inplace"], cwd=os.path.join(base_dir, ".berry_build"), env=env, check=True)
+    
+    print(f"{GREEN}[pyberry] Running TSan Crucible Audit on test suite...{RESET}")
+    pytest_env = os.environ.copy()
+    pytest_env["PYTHONPATH"] = f"{os.path.join(base_dir, '.berry_build')}:{base_dir}"
+    
+    cli_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(os.path.dirname(cli_dir)) 
+    supp_path = os.path.join(root_dir, "tsan_suppressions.txt")
+    
+    tsan_opts = "halt_on_error=1 history_size=7"
+    if os.path.exists(supp_path):
+        tsan_opts = f"suppressions={supp_path} " + tsan_opts
+        
+    pytest_env["TSAN_OPTIONS"] = tsan_opts
+    
+    result = subprocess.run([sys.executable, "-m", "pytest", "tests/"], cwd=base_dir, env=pytest_env)
+    
+    if result.returncode == 0:
+        print(f"{GREEN}[pyberry] Audit passed! Zero data races detected. Generating build.lock...{RESET}")
+        with open(os.path.join(base_dir, ".berry_build", "build.lock"), "w") as f:
+            f.write("PASSED_TSAN_AUDIT")
+    else:
+        print(f"{RED}[ERROR] TSan Audit failed! Data races detected in the application.{RESET}")
+        sys.exit(1)
+
+
+def start(args):
+    if not getattr(args, "prod", False):
+        print(f"{RED}[ERROR] Please use `pyberry start --prod` to deploy.{RESET}")
+        sys.exit(1)
+        
+    print(f"{GREEN}[pyberry] Starting in PRODUCTION mode (The Rocket)...{RESET}")
+    
+    if not os.path.exists(".berry_build/build.lock"):
+        print(f"{RED}[PyBerry] FATAL: Cannot start in production mode. TSan audit has not been passed. (Missing .berry_build/build.lock){RESET}")
+        sys.exit(1)
+        
+    print(f"{GREEN}[pyberry] Recompiling with maximum optimizations (-O3, No TSan)...{RESET}")
+    env = os.environ.copy()
+    env["PYBERRY_TSAN"] = "0"
+    subprocess.run([sys.executable, "setup.py", "build_ext", "--inplace", "--force"], cwd=".berry_build", env=env, check=True)
+
+    print(f"{GREEN}  - Server:      Granian{RESET}")
+    print(f"{GREEN}  - Workers:     {args.workers}{RESET}")
+    print(f"{GREEN}  - Event Loop:  uvloop{RESET}")
+    print(f"{GREEN}  - Interface:   RSGI{RESET}")
+    
+    env["PYTHONPATH"] = "src:.:.berry_build"
+    
+    try:
+        with open(".berry_build/entrypoint.txt", "r") as f:
+            entry_module = f.read().strip()
+    except FileNotFoundError:
+        print(f"{RED}[ERROR] Could not find .berry_build/entrypoint.txt.{RESET}")
+        sys.exit(1)
+    
+    wrapper_code = f"""
+import sys
+import {entry_module}
+from pyberry.core.rsgi import app
+"""
+    with open(".berry_build/run_wrapper.py", "w") as f:
+        f.write(wrapper_code)
+        
+    subprocess.run(["granian", "--interface", "rsgi", "--workers", str(args.workers), "--loop", "uvloop", "run_wrapper:app"], env=env, check=True)
+
 
 def check(args):
     import platform
@@ -317,7 +359,6 @@ def check(args):
 
 def migrate(args):
     print(f"{GREEN}[pyberry] Running database migration...{RESET}")
-    # Initialize config to load security settings like LIBSQL_URL
     from pyberry.config import config
     from pyberry.db import db
     import asyncio
@@ -339,9 +380,6 @@ def migrate(args):
     
     async def run_migration():
         try:
-            # Split and execute each statement for better compatibility with libsql driver 
-            # if multiple statements are provided.
-            # Using execute() might only run the first statement or block of statements.
             await db.execute(sql)
             print(f"{GREEN}[pyberry] Migration successful!{RESET}")
         except Exception as e:
@@ -360,14 +398,17 @@ def main():
     create_app_parser = create_subparsers.add_parser("app")
     create_app_parser.add_argument("app", help="Path to create the app in (e.g., . for current directory, or myapp)")
     
-    build_parser = subparsers.add_parser("build")
-    build_parser.add_argument("app", help="Path to your app file (e.g., user_app.py)")
-    
     run_parser = subparsers.add_parser("run")
-    run_parser.add_argument("--workers", type=int, default=1, help="Number of worker processes")
+    run_parser.add_argument("app", help="Path to your app file (e.g., main.py)")
+    run_parser.add_argument("--dev", action="store_true", help="Run in Playground mode (hot-reloading, no TSan)")
     
-    dev_parser = subparsers.add_parser("dev")
-    dev_parser.add_argument("app", help="Path to your app file")
+    build_parser = subparsers.add_parser("build")
+    build_parser.add_argument("app", help="Path to your app file (e.g., main.py)")
+    build_parser.add_argument("--audit", action="store_true", help="Mandatory TSan audit mode")
+    
+    start_parser = subparsers.add_parser("start")
+    start_parser.add_argument("--prod", action="store_true", help="Run in Rocket mode (requires build.lock)")
+    start_parser.add_argument("--workers", type=int, default=1, help="Number of worker processes")
     
     migrate_parser = subparsers.add_parser("migrate")
     migrate_parser.add_argument("--file", default="db/initial_schema.sql", help="Path to the SQL schema file")
@@ -386,8 +427,8 @@ def main():
         build(args)
     elif args.command == "run":
         run(args)
-    elif args.command == "dev":
-        dev(args)
+    elif args.command == "start":
+        start(args)
     elif args.command == "migrate":
         migrate(args)
     elif args.command == "check":

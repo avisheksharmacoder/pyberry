@@ -85,4 +85,5 @@ benchmark_results.txt
 app*/
 app5*/
 
-
+# TSan Workspaces
+.tsan_env/

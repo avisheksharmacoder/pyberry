@@ -6,12 +6,15 @@ By combining the **Rust Server Gateway Interface (RSGI)** via Granian, **Cython 
 
 ## Key Features
 
-- **AOT Compilation (Cython):** Transpiles Python dataclasses and logic directly into C extensions (`@cython.cclass`), compiling the entire application ahead-of-time for maximum speed.
-- **Rust-Powered Networking (Granian & RSGI):** Uses Granian's RSGI server interface to bypass slow WSGI/ASGI translation and directly feed memory views from Rust to Python.
-- **C-Implemented Radix Router:** High-performance, O(K) complexity routing engine written in native C for instant path resolution, complete with dynamic path variables (e.g. `/users/{id}`) support.
-- **Automatic Type Casting:** Path parameters and query string variables are automatically cast into their respective Python types (e.g. `int`, `bool`) based on your function's type hints.
-- **Smart Asynchronous Execution (`FastFuture`):** Custom C-level wrappers around awaitables that heavily reduce `asyncio` overhead when calling async Python functions.
-- **Built-in Developer CLI:** `pyberry run`, `pyberry dev`, `pyberry build`, and `pyberry check` provide a seamless Developer Experience (DX) out of the box.
+- **Ultra-Fast Performance**: Built on top of the Granian server utilizing the RSGI interface and `uvloop`, providing unmatched speed and concurrency, achieving a modest 30,000+ RPS with a single worker. 
+- **Cython-Optimized Core**: Almost the entire core engine (routing, request/response handling, validation, and security) is written in Cython (`.pyx`), compiling down to C-extensions for zero-overhead execution.
+- **Built-in Security**: Good security configured out-of-the-box, including CORS, Host Header Validation, automatic Security Headers (HSTS, CSP, X-Frame-Options), Rate Limiting, and Path Traversal Protection.
+- **Production Transpilation**: Includes a built-in CLI compiler (`pyberry build`) that automatically transpiles your application code into Cython extensions for maximum production performance.
+- **Seamless Database Integration**: First-class asynchronous support for `libsql` (Turso) with built-in schema migration tools (`pyberry migrate`).
+- **Zero-Latency Logging**: Highly optimized background logger written in Cython ensuring that application telemetry doesn't impact request response times.
+- **Developer Friendly CLI**: Includes an intuitive command-line interface with commands to bootstrap projects (`pyberry create`), run in hot-reloading dev mode (`pyberry dev`), and check system readiness (`pyberry check`).
+- **High-Speed JSON Serialization**: Integrates a custom `fastjson` module implemented in Cython to rapidly handle JSON parsing and responses.
+- **Simple & Intuitive API**: Lightweight decorator-based routing syntax (e.g., `@get`, `@post`) making it incredibly easy to define endpoints without boilerplate.
 
 ## Table of Contents
 1. [Architecture Overview](architecture.md)

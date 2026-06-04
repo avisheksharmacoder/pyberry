@@ -1,7 +1,9 @@
 include README.md
 include pyproject.toml
 recursive-include src/pyberry/core *.pyx *.pxd *.c
+recursive-include src/pyberry_rust *
 recursive-include docs *.md
 global-exclude *.pyc
 global-exclude __pycache__
 global-exclude *.so
+prune src/pyberry_rust/target

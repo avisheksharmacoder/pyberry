@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyberry-framework"
-version = "0.1.2"
+version = "0.1.3"
 dynamic = ["description", "readme", "authors"]
 dependencies = [
     "granian",

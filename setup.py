@@ -1,4 +1,35 @@
 import os
+import sys
+import shutil
+
+# =============================================================================
+# ENVIRONMENT CHECKS
+# =============================================================================
+# Check if Cargo (Rust) is installed
+if not shutil.which("cargo"):
+    print("\n" + "="*80)
+    print("❌ ERROR: Rust/Cargo is not installed or not in PATH.")
+    print("PyBerry-framework requires Rust to compile its high-performance extensions.")
+    print("To install Rust, run:")
+    print("    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh")
+    print("Or visit: https://rustup.rs/")
+    print("="*80 + "\n")
+    sys.exit(1)
+
+# Check if a C compiler is installed
+compilers = ["gcc", "clang", "cc"]
+if sys.platform == "win32":
+    compilers.append("cl")
+
+if not any(shutil.which(c) for c in compilers):
+    print("\n" + "="*80)
+    print("⚠️  WARNING: No C compiler found in PATH.")
+    print("PyBerry-framework requires a C compiler to build its Cython extensions.")
+    print("Depending on your OS, please install:")
+    print("  - Linux:   `build-essential` (e.g., sudo apt install build-essential)")
+    print("  - macOS:   Xcode Command Line Tools (run: xcode-select --install)")
+    print("  - Windows: Microsoft Visual C++ Build Tools")
+    print("="*80 + "\n")
 
 # Allow PyO3 to build on Python 3.14 by suppressing the version check
 os.environ["PYO3_USE_ABI3_FORWARD_COMPATIBILITY"] = "1"
@@ -73,7 +104,7 @@ for ext in extensions:
 
 setup(
     name="pyberry-framework",
-    version="0.1.2",
+    version="0.1.3",
     author="Avishek Sharma",
     author_email="avisheksharmacoder@gmail.com",
     description="A fast, Cython compiled async web framework",

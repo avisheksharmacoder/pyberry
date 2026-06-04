@@ -8,20 +8,20 @@ By combining the **Rust Server Gateway Interface (RSGI)** via Granian, **Cython 
 
 - **Ultra-Fast Performance**: Built on top of the Granian server utilizing the RSGI interface and `uvloop`, providing unmatched speed and concurrency, achieving a modest 30,000+ RPS with a single worker. 
 - **Cython-Optimized Core**: Almost the entire core engine (routing, request/response handling, validation, and security) is written in Cython (`.pyx`), compiling down to C-extensions for zero-overhead execution.
-- **Built-in Security**: Good security configured out-of-the-box, including CORS, Host Header Validation, automatic Security Headers (HSTS, CSP, X-Frame-Options), Rate Limiting, and Path Traversal Protection.
+- **[Built-in Security](security.md)**: Good security configured out-of-the-box, including CORS, Host Header Validation, automatic Security Headers (HSTS, CSP, X-Frame-Options), Rate Limiting, and Path Traversal Protection.
 - **Production Transpilation**: Includes a built-in CLI compiler (`pyberry build`) that automatically transpiles your application code into Cython extensions for maximum production performance.
 - **Seamless Database Integration**: First-class asynchronous support for `libsql` (Turso) with built-in schema migration tools (`pyberry migrate`).
-- **Zero-Latency Logging**: Highly optimized background logger written in Cython ensuring that application telemetry doesn't impact request response times.
+- **[Zero-Latency Logging](logging.md)**: Highly optimized background logger written in Cython ensuring that application telemetry doesn't impact request response times.
 - **Developer Friendly CLI**: Includes an intuitive command-line interface with commands to bootstrap projects (`pyberry create`), run in hot-reloading dev mode (`pyberry dev`), and check system readiness (`pyberry check`).
 - **High-Speed JSON Serialization**: Integrates a custom `fastjson` module implemented in Cython to rapidly handle JSON parsing and responses.
-- **Simple & Intuitive API**: Lightweight decorator-based routing syntax (e.g., `@get`, `@post`) making it incredibly easy to define endpoints without boilerplate.
+- **[Simple & Intuitive API](high_performance_routes.md)**: Lightweight decorator-based routing syntax (e.g., `@get`, `@post`) making it incredibly easy to define endpoints without boilerplate.
 
 ### Out-of-the-Box Memory Safety: Beating the Rust Workflow
 When architecting high-performance backend systems, developers usually face a harsh trade-off: use Python for rapid prototyping but risk 3 AM memory crashes, or use Rust for perfect memory safety but suffer through a brutal, slow development cycle fighting the "borrow checker."
 
 PyBerry solves this by giving you the ultimate hybrid experience. It provides **100% of Rust’s memory safety** with none of the daily frustration. 
 
-It achieves this through an automated **ThreadSanitizer (TSan) Shield** built directly into the CLI:
+It achieves this through an automated **[ThreadSanitizer (TSan) Shield](TSan.md)** built directly into the CLI:
 - **Where PyBerry Beats Rust (The Playground):** Instead of a compiler screaming at you about lifetime bounds while you are just trying to mock out a JSON schema or test routing logic, PyBerry lets you write pure Python. You prototype at the speed of thought, and the Python GIL keeps you safe while you experiment.
 - **Equivalent Safety to Rust (The Crucible):** Before you can deploy, you must run the PyBerry build command. The framework dynamically injects ThreadSanitizer into your code. While Rust uses mathematical proofs to prevent threading bugs at compile-time, TSan hooks directly into the CPU to track every single memory read and write at run-time during your test suite. If a single data race exists in your high-speed C extensions, TSan catches it with absolute microscopic precision.
 - **Bulletproof Deployments (The Rocket):** PyBerry acts as a strict gatekeeper. If your code has a threading bug, the framework refuses to let you launch it. If your code is perfectly safe—proving it has the same thread-safety guarantees as a Rust binary—PyBerry strips away the safety checks and launches your server at maximum, unthrottled speed.
@@ -32,8 +32,16 @@ It achieves this through an automated **ThreadSanitizer (TSan) Shield** built di
 3. [Modular Project Design](modular.md)
 4. [Fast HTTP Responses & Exceptions](responses.md)
 5. [Database (LibSQL) Integration](database.md)
-6. [The Core Runtime](#the-core-runtime)
-7. [AOT Transpiler Engine](#aot-transpiler-engine)
+6. [High Performance Routing](high_performance_routes.md)
+7. [Data Validation](validation.md)
+8. [Security Guide](security.md)
+9. [Zero-Latency Logging](logging.md)
+10. [Tokio Rust Backend](tokio_backend.md)
+11. [ThreadSanitizer (TSan)](TSan.md)
+12. [General Usage](pyberry_usage.md)
+13. [Examples](examples.md)
+14. [The Core Runtime](#the-core-runtime)
+15. [AOT Transpiler Engine](#aot-transpiler-engine)
 
 ## Quick Start
 ```bash

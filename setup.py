@@ -5,31 +5,54 @@ import shutil
 # =============================================================================
 # ENVIRONMENT CHECKS
 # =============================================================================
-# Check if Cargo (Rust) is installed
-if not shutil.which("cargo"):
-    print("\n" + "="*80)
-    print("❌ ERROR: Rust/Cargo is not installed or not in PATH.")
-    print("PyBerry-framework requires Rust to compile its high-performance extensions.")
-    print("To install Rust, run:")
-    print("    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh")
-    print("Or visit: https://rustup.rs/")
-    print("="*80 + "\n")
-    sys.exit(1)
-
-# Check if a C compiler is installed
-compilers = ["gcc", "clang", "cc"]
 if sys.platform == "win32":
-    compilers.append("cl")
+    has_cargo = shutil.which("cargo") is not None
+    has_c_compiler = any(shutil.which(c) for c in ["cl", "gcc", "clang", "cc"])
+    
+    if not has_cargo or not has_c_compiler:
+        missing_tools = []
+        if not has_cargo:
+            missing_tools.append("Rust Toolchain")
+        if not has_c_compiler:
+            missing_tools.append("Microsoft Visual C++ Build Tools")
+            
+        print("\n" + "="*80)
+        print(f"WINDOWS INSTALLATION PREREQUISITES MISSING: {', '.join(missing_tools)}")
+        print("PyBerry requires the following tools to compile its extensions from source:")
+        print("")
+        if not has_cargo:
+            print("1. Rust Toolchain: Download from https://rustup.rs/")
+            print("   - Run rustup-init.exe and proceed with the default installation.")
+            print("")
+        if not has_c_compiler:
+            print("2. Microsoft Visual C++ Build Tools:")
+            print("   - Download from https://visualstudio.microsoft.com/visual-cpp-build-tools/")
+            print("   - Run the installer and select 'Desktop development with C++'.")
+            print("")
+        print("After installing the required tools, you MUST RESTART YOUR TERMINAL before retrying.")
+        print("="*80 + "\n")
+        sys.exit(1)
+else:
+    # Check if Cargo (Rust) is installed (Linux/macOS)
+    if not shutil.which("cargo"):
+        print("\n" + "="*80)
+        print("ERROR: Rust/Cargo is not installed or not in PATH.")
+        print("PyBerry-framework requires Rust to compile its high-performance extensions.")
+        print("To install Rust, run:")
+        print("    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh")
+        print("="*80 + "\n")
+        sys.exit(1)
 
-if not any(shutil.which(c) for c in compilers):
-    print("\n" + "="*80)
-    print("⚠️  WARNING: No C compiler found in PATH.")
-    print("PyBerry-framework requires a C compiler to build its Cython extensions.")
-    print("Depending on your OS, please install:")
-    print("  - Linux:   `build-essential` (e.g., sudo apt install build-essential)")
-    print("  - macOS:   Xcode Command Line Tools (run: xcode-select --install)")
-    print("  - Windows: Microsoft Visual C++ Build Tools")
-    print("="*80 + "\n")
+    # Check if a C compiler is installed (Linux/macOS)
+    compilers = ["gcc", "clang", "cc"]
+    if not any(shutil.which(c) for c in compilers):
+        print("\n" + "="*80)
+        print("WARNING: No C compiler found in PATH.")
+        print("PyBerry-framework requires a C compiler to build its Cython extensions.")
+        print("Depending on your OS, please install:")
+        print("  - Linux:   `build-essential` (e.g., sudo apt install build-essential)")
+        print("  - macOS:   Xcode Command Line Tools (run: xcode-select --install)")
+        print("="*80 + "\n")
 
 # Allow PyO3 to build on Python 3.14 by suppressing the version check
 os.environ["PYO3_USE_ABI3_FORWARD_COMPATIBILITY"] = "1"
@@ -71,7 +94,10 @@ if os.path.exists("docs/README.md"):
 USE_TSAN = os.environ.get("PYBERRY_TSAN", "0") == "1"
 
 # Base compiler flags for extreme performance
-compile_flags = ["-O3", "-march=native", "-ffast-math"]
+if sys.platform == "win32":
+    compile_flags = ["/std:c11", "/experimental:c11atomics"]
+else:
+    compile_flags = ["-O3", "-march=native", "-ffast-math"]
 link_flags = []
 
 # If TSan is enabled, drop optimizations and inject sanitizers
@@ -104,7 +130,7 @@ for ext in extensions:
 
 setup(
     name="pyberry-framework",
-    version="0.1.3",
+    version="0.1.8",
     author="Avishek Sharma",
     author_email="avisheksharmacoder@gmail.com",
     description="A fast, Cython compiled async web framework",

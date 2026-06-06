@@ -12,8 +12,12 @@ cdef extern from *:
     """
     #include <stddef.h>
     #include <stdatomic.h>
+    #ifdef _MSC_VER
+    #include <io.h>
+    #else
     #include <unistd.h>
     #include <sys/eventfd.h>
+    #endif
     #include <Python.h>
 
     #define IO_QUEUE_SIZE 8192
@@ -50,7 +54,11 @@ cdef extern from *:
         
         if (io_event_fd != -1) {
             uint64_t val = 1;
+#ifdef _MSC_VER
+            _write(io_event_fd, &val, sizeof(uint64_t));
+#else
             write(io_event_fd, &val, sizeof(uint64_t));
+#endif
         }
         
         return 1; // Success
@@ -74,7 +82,9 @@ cdef extern from *:
 
     static int init_eventfd_c() {
         if (io_event_fd == -1) {
+#ifndef _MSC_VER
             io_event_fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+#endif
         }
         return io_event_fd;
     }

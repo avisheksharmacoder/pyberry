@@ -32,6 +32,8 @@ cdef class Router:
     cdef RadixNode* put_tree
     cdef RadixNode* delete_tree
     cdef RadixNode* patch_tree
+    cdef RadixNode* options_tree
+    cdef RadixNode* head_tree
     cdef public dict python_routes_map
     cdef public int next_route_id
     cdef public dict exact_routes

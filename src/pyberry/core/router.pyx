@@ -220,9 +220,11 @@ cdef class Router:
         self.put_tree = create_node("/", 0)
         self.delete_tree = create_node(b"/", 0)
         self.patch_tree = create_node(b"/", 0)
+        self.options_tree = create_node(b"/", 0)
+        self.head_tree = create_node(b"/", 0)
         self.python_routes_map = {}
         self.next_route_id = 1
-        self.exact_routes = {"GET": {}, "POST": {}, "PUT": {}, "DELETE": {}, "PATCH": {}}
+        self.exact_routes = {"GET": {}, "POST": {}, "PUT": {}, "DELETE": {}, "PATCH": {}, "OPTIONS": {}, "HEAD": {}}
 
     def add_python_route(self, method, path, handler):
         import dataclasses
@@ -271,6 +273,10 @@ cdef class Router:
             insert_python_route(self.delete_tree, c_path, route_id)
         elif method == "PATCH":
             insert_python_route(self.patch_tree, c_path, route_id)
+        elif method == "OPTIONS":
+            insert_python_route(self.options_tree, c_path, route_id)
+        elif method == "HEAD":
+            insert_python_route(self.head_tree, c_path, route_id)
 
     def match_python_route(self, method, path):
         exact_method = self.exact_routes.get(method)
@@ -293,6 +299,10 @@ cdef class Router:
             route_id = search_python_route(self.delete_tree, c_path, params, &num_params)
         elif method == "PATCH":
             route_id = search_python_route(self.patch_tree, c_path, params, &num_params)
+        elif method == "OPTIONS":
+            route_id = search_python_route(self.options_tree, c_path, params, &num_params)
+        elif method == "HEAD":
+            route_id = search_python_route(self.head_tree, c_path, params, &num_params)
             
         if route_id > 0:
             out_params = {}
@@ -310,6 +320,8 @@ cdef class Router:
         free_node(self.put_tree)
         free_node(self.delete_tree)
         free_node(self.patch_tree)
+        free_node(self.options_tree)
+        free_node(self.head_tree)
 
     cdef void add_route(self, str method, str path, EndpointFunc handler):
         cdef bytes b_path = path.encode('utf-8')
@@ -324,6 +336,10 @@ cdef class Router:
             insert(self.delete_tree, c_path, handler)
         elif method == "PATCH":
             insert(self.patch_tree, c_path, handler)
+        elif method == "OPTIONS":
+            insert(self.options_tree, c_path, handler)
+        elif method == "HEAD":
+            insert(self.head_tree, c_path, handler)
 
     cdef EndpointFunc get_route(self, str method, str path):
         cdef const char* c_path = PyUnicode_AsUTF8(path)
@@ -337,4 +353,8 @@ cdef class Router:
             return search(self.delete_tree, c_path)
         elif method == "PATCH":
             return search(self.patch_tree, c_path)
+        elif method == "OPTIONS":
+            return search(self.options_tree, c_path)
+        elif method == "HEAD":
+            return search(self.head_tree, c_path)
         return NULL

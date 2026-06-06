@@ -1,5 +1,5 @@
 from pyberry import BaseModel
-from pyberry.app import get, post
+from pyberry.app import get, post, patch, delete
 from pyberry.core.request import Request
 from pyberry.core.responses import JSONResponse
 from pyberry.db import db
@@ -40,3 +40,21 @@ async def get_product(req: Request, product_id: int):
         raise NotFoundException("Product not found")
         
     return JSONResponse({"product": product})
+
+@patch("/products/{product_id}")
+async def update_product_price(req: Request, product_id: int):
+    """Partially update a product, e.g., changing its price."""
+    data = await req.json()
+    new_price = data.get("price")
+    
+    if new_price is None:
+        return JSONResponse({"error": "No price provided for update"}, status=400)
+        
+    await db.execute("UPDATE products SET price = ? WHERE id = ?", [new_price, product_id])
+    return JSONResponse({"status": "success", "message": f"Product {product_id} price updated to {new_price}."})
+
+@delete("/products/{product_id}")
+async def remove_product(req: Request, product_id: int):
+    """Remove a product from the catalog."""
+    await db.execute("DELETE FROM products WHERE id = ?", [product_id])
+    return JSONResponse({"status": "success", "message": f"Product {product_id} deleted."})

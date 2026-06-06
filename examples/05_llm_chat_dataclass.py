@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import List
-from pyberry.app import post
+from pyberry.app import post, delete
 from pyberry.core.request import Request
 from pyberry.core.responses import JSONResponse
 
@@ -32,4 +32,14 @@ def chat_completion(req: Request, payload: ChatRequest):
             {"message": {"role": "assistant", "content": mock_reply}}
         ],
         "model": payload.model
+    })
+
+@delete("/chat/history/{session_id}")
+def clear_chat_history(req: Request, session_id: str):
+    """
+    Clears the chat history for a specific session.
+    """
+    return JSONResponse({
+        "status": "success", 
+        "message": f"Chat history for session {session_id} has been deleted."
     })

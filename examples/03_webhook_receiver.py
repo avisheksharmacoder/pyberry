@@ -1,4 +1,4 @@
-from pyberry.app import post
+from pyberry.app import post, options
 from pyberry.core.request import Request
 from pyberry.core.responses import JSONResponse, PlainTextResponse
 import hmac
@@ -37,3 +37,13 @@ async def github_webhook(req: Request):
         print(f"Received push event with {commits} commits!")
         
     return JSONResponse({"status": "Webhook processed successfully"})
+
+@options("/webhooks/github")
+def github_webhook_options(req: Request):
+    """Handle CORS preflight requests for the webhook endpoint."""
+    headers = [
+        ("Allow", "POST, OPTIONS"),
+        ("Access-Control-Allow-Methods", "POST, OPTIONS"),
+        ("Access-Control-Allow-Headers", "x-hub-signature-256, x-github-event, content-type")
+    ]
+    return PlainTextResponse("", headers=headers)

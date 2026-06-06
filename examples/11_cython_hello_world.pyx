@@ -27,3 +27,22 @@ cdef object hello_world_cython(object scope, object proto):
 
 # Register directly into the Radix Tree (cdef functions cannot use @app.get)
 _router.add_route("GET", "/hello-cython", hello_world_cython)
+
+cdef object update_cython(object scope, object proto):
+    proto.response_str(
+        status=200, 
+        headers=[('content-type', 'text/plain')], 
+        body="Resource updated from Cython!"
+    )
+    return 200
+
+cdef object delete_cython(object scope, object proto):
+    proto.response_str(
+        status=200, 
+        headers=[('content-type', 'text/plain')], 
+        body="Resource deleted from Cython!"
+    )
+    return 200
+
+_router.add_route("PUT", "/update-cython", update_cython)
+_router.add_route("DELETE", "/delete-cython", delete_cython)

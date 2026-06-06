@@ -1,4 +1,4 @@
-from pyberry.app import get
+from pyberry.app import get, head
 from pyberry.core.request import Request
 from pyberry.core.responses import HTMLResponse
 
@@ -34,3 +34,18 @@ def user_dashboard(req: Request):
     ]
     
     return HTMLResponse(html, headers=custom_headers)
+
+@head("/dashboard")
+def user_dashboard_head(req: Request):
+    """Returns headers for the dashboard without the HTML body."""
+    auth_cookie = req.headers.get("cookie", "")
+    if "session_token" not in auth_cookie:
+        return HTMLResponse("", status=302, headers=[("Location", "/login")])
+        
+    custom_headers = [
+        ("Cache-Control", "no-store, no-cache, must-revalidate, private"),
+        ("Pragma", "no-cache"),
+        ("Content-Length", "185") # Approximated length of the HTML body
+    ]
+    
+    return HTMLResponse("", headers=custom_headers)

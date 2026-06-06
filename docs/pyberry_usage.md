@@ -17,9 +17,11 @@ This will generate a `main.py` entrypoint. Let's look at how to build upon this.
 
 ---
 
-## 2. Routing (`@get`, `@post`)
+## 2. Routing (`@get`, `@post`, `@put`, `@patch`, `@delete`, `@options`, `@head`)
 
-PyBerry routes requests using simple decorators imported from `pyberry.app`. Currently, the framework supports `GET` and `POST` methods.
+PyBerry routes requests using simple decorators imported from `pyberry.app`. The framework supports a full suite of standard RESTful HTTP methods.
+
+### Basic Routing (`GET` and `POST`)
 
 ```python
 from pyberry.app import get, post
@@ -33,6 +35,58 @@ def home(req: Request):
 @post("/submit")
 def submit_data(req: Request):
     return PlainTextResponse("Data submitted successfully!")
+```
+
+### Advanced Routing (`PUT`, `PATCH`, `DELETE`)
+
+PyBerry supports full resource modifications using `PUT`, partial updates with `PATCH`, and removals using `DELETE`. You can also easily parse dynamic path parameters by wrapping them in curly braces `{}`.
+
+```python
+from pyberry.app import put, patch, delete
+from pyberry.core.request import Request
+from pyberry.core.responses import JSONResponse
+
+# PUT is typically used for fully replacing a resource
+@put("/users/{user_id}")
+async def update_user_fully(req: Request, user_id: int):
+    data = await req.json()
+    return JSONResponse({"status": "updated", "id": user_id, "data": data})
+
+# PATCH is typically used for partial updates
+@patch("/users/{user_id}")
+async def update_user_partially(req: Request, user_id: int):
+    partial_data = await req.json()
+    return JSONResponse({"status": "patched", "id": user_id, "changes": partial_data})
+
+# DELETE is used for resource removal
+@delete("/users/{user_id}")
+def remove_user(req: Request, user_id: int):
+    return JSONResponse({"status": "deleted", "id": user_id})
+```
+
+### Utility Routing (`OPTIONS`, `HEAD`)
+
+For advanced API capabilities and CORS preflighting, you can explicitly handle `OPTIONS` and `HEAD` requests.
+
+```python
+from pyberry.app import options, head
+from pyberry.core.request import Request
+from pyberry.core.responses import PlainTextResponse
+
+# OPTIONS is often used by browsers for CORS preflight checks
+@options("/api/resource")
+def resource_options(req: Request):
+    headers = [
+        ("Allow", "GET, POST, OPTIONS"),
+        ("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    ]
+    return PlainTextResponse("", headers=headers)
+
+# HEAD is identical to GET, but without returning the response body
+@head("/api/resource")
+def resource_head(req: Request):
+    headers = [("Content-Length", "1024"), ("X-Resource-Version", "v1.2")]
+    return PlainTextResponse("", headers=headers)
 ```
 
 ---

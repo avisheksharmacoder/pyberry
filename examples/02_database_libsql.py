@@ -1,4 +1,4 @@
-from pyberry.app import get, post
+from pyberry.app import get, post, put, delete
 from pyberry.core.request import Request
 from pyberry.core.responses import JSONResponse
 from pyberry.db import db
@@ -39,3 +39,25 @@ async def get_single_post(req: Request, post_id: int):
         return JSONResponse({"error": "Post not found"}, status=404)
         
     return JSONResponse({"data": post})
+
+@put("/posts/{post_id}")
+async def update_post(req: Request, post_id: int):
+    """Update an existing post."""
+    data = await req.json()
+    title = data.get("title")
+    content = data.get("content")
+    
+    if not title or not content:
+        raise BadRequestException("Missing title or content")
+        
+    await db.execute(
+        "UPDATE posts SET title = ?, content = ? WHERE id = ?",
+        [title, content, post_id]
+    )
+    return JSONResponse({"status": "Post updated successfully"})
+
+@delete("/posts/{post_id}")
+async def delete_post(req: Request, post_id: int):
+    """Delete a post from the database."""
+    await db.execute("DELETE FROM posts WHERE id = ?", [post_id])
+    return JSONResponse({"status": "Post deleted successfully"})

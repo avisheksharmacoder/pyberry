@@ -62,6 +62,7 @@ async def get_users(req: Request):
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 CORS_ENABLED = True
+CORS_ALLOWED_ORIGINS = []
 LOGGING_ENABLED = True
 SECURITY_HEADERS_ENABLED = True
 HSTS_MAX_AGE = 31536000

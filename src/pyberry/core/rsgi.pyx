@@ -178,7 +178,7 @@ async def app(scope, proto):
         # ---------------------------------------------------------
         # Step 2.3: Security Middleware Layer
         # ---------------------------------------------------------
-        sec_status = validate_request(scope, config.cors_enabled, config.allowed_hosts, config.path_traversal_protection, config.max_body_size)
+        sec_status = validate_request(scope, config.cors_enabled, config.allowed_hosts, config.cors_allowed_origins, config.path_traversal_protection, config.max_body_size)
         if sec_status != 0:
             if sec_status == 413:
                 headers_413 = _inject_security_headers([('content-type', 'text/plain')], config.security_headers)

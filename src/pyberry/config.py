@@ -9,6 +9,7 @@ class Config:
         
         # By default, allow all hosts, but this is overridden by security.py
         self.allowed_hosts = ["*"]
+        self.cors_allowed_origins = []
         
         # Zero-latency background logging
         self.logging_enabled = True
@@ -23,6 +24,7 @@ class Config:
             import security
             self.cors_enabled = getattr(security, 'CORS_ENABLED', True)
             self.allowed_hosts = getattr(security, 'ALLOWED_HOSTS', ["*"])
+            self.cors_allowed_origins = getattr(security, 'CORS_ALLOWED_ORIGINS', [])
             self.logging_enabled = getattr(security, 'LOGGING_ENABLED', True)
             self.stdout_logging_enabled = getattr(security, 'STDOUT_LOGGING_ENABLED', True)
             
@@ -57,6 +59,7 @@ class Config:
         except ImportError:
             # Fallbacks if security.py is completely missing
             self.security_headers_enabled = True
+            self.cors_allowed_origins = []
             self.max_body_size = 1048576
             self.path_traversal_protection = True
             self.rate_limit_enabled = False

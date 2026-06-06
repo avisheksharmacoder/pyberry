@@ -120,7 +120,7 @@ cdef bint is_cors_origin_allowed(str request_origin, list allowed_origins):
 
     return False
 
-cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, bint path_traversal_protection, int max_body_size) except *:
+cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, list allowed_origins, bint path_traversal_protection, int max_body_size) except *:
     """
     Validates a request for Path Traversal, Host Header Injection, CORS/CSRF, and Payload limits.
     Returns 0 if valid, 400 for Bad Request, 403 for Forbidden, 413 for Payload Too Large.
@@ -213,7 +213,7 @@ cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, b
         except Exception:
             is_same_origin = False
             
-        if not is_same_origin and not is_cors_origin_allowed(origin, allowed_hosts):
+        if not is_same_origin and not is_cors_origin_allowed(origin, allowed_origins):
             return 403
             
     return 0

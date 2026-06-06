@@ -1,4 +1,4 @@
 # cython: language_level=3
 
-cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, bint path_traversal_protection, int max_body_size) except *
+cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, list allowed_origins, bint path_traversal_protection, int max_body_size) except *
 cdef int check_rate_limit(str ip, int max_req, int window) except *

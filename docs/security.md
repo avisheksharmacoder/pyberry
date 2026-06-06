@@ -14,13 +14,21 @@ There is **no need** to manually import or configure these settings inside your 
 # security.py
 # High-grade security configurations for PyBerry
 
-# Allowed Hosts prevents Host Header Injection attacks (BadHost vulnerabilities).
-# Only requests with a matching Host header will be processed.
-# In production, replace "localhost" and "127.0.0.1" with your actual domain names.
+# Allowed Hosts prevents Host Header Injection attacks.
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 # Strict CORS policy
 CORS_ENABLED = True
+
+# To allow external frontends to access your API, define them here.
+# Supports exact matches and wildcards (e.g., "https://*.mycoolapp.com")
+CORS_ALLOWED_ORIGINS = [] 
+
+# Memory exhaustion protection (Default: 1MB)
+MAX_BODY_SIZE = 1048576 
+
+# Automatically injects X-Content-Type-Options, X-Frame-Options, etc.
+SECURITY_HEADERS_ENABLED = True
 ```
 
 ## Security Mechanisms
@@ -35,9 +43,26 @@ PyBerry actively validates the `Host` header against the `ALLOWED_HOSTS` list de
 
 ### 2. CORS (Cross-Origin Resource Sharing)
 
-By default, PyBerry enforces a strict CORS policy when `CORS_ENABLED = True` is set in your `security.py`. 
-- The framework performs an extremely strict block on cross-origin requests by ensuring that the request's `Origin` header matches the `Host` header. 
-- If they do not match, the request is intercepted and an HTTP `403 Forbidden` response is returned.
+By default, PyBerry enforces a strict CORS policy when `CORS_ENABLED = True` is set in your `security.py`.
+* The framework ensures that the request's `Origin` header securely matches the `Host` header, preventing unauthorized Cross-Site Request Forgery (CSRF).
+* If you have a separate frontend application (e.g., a React app at `https://app.example.com`), you can safely whitelist it using the `CORS_ALLOWED_ORIGINS` array. PyBerry natively supports exact matches and wildcard subdomains (e.g., `https://*.example.com`).
+* Unauthorized cross-origin requests are intercepted instantly with an HTTP `403 Forbidden` response.
+
+### 3. Null Byte Injection Prevention
+
+When handling user-supplied paths or file interactions, malicious users often append null bytes (`\x00` or `%00`) to manipulate the underlying C-level filesystem APIs into truncating the string early. PyBerry actively blocks null bytes from resolving during path normalization by returning a `400 Bad Request` instantly before the request enters Python execution logic.
+
+### 4. Body Payload Limiting
+
+PyBerry protects against memory exhaustion (RAM DOS) natively via strict payload sizing. By default, any incoming payload exceeding 1MB is rejected immediately with a `413 Payload Too Large`. 
+- This virtually zero-latency interception ensures the server never allocates RAM to buffer malicious payloads. 
+- You can override this limit by defining `MAX_BODY_SIZE` (in bytes) in your `security.py`.
+
+### 5. Global Security Headers
+
+A secure framework shouldn't require developers to memorize security headers. PyBerry automatically injects an optimized set of default headers onto **every** outgoing HTTP response.
+- At an absolute minimum, responses include `X-Content-Type-Options: nosniff` and `X-Frame-Options: deny`.
+- You can override these defaults by setting `SECURITY_HEADERS_ENABLED = False` or modifying `X_FRAME_OPTIONS` and `CONTENT_SECURITY_POLICY` inside `security.py`.
 
 ## Going to Production
 

@@ -1,37 +1,124 @@
 # cython: language_level=3
 
 import time
+import threading
+from urllib.parse import urlparse, unquote
 from libc.string cimport strncasecmp, strchr
 
-cdef class RateLimitState:
-    cdef public int count
-    cdef public double first_req
-    
-    def __cinit__(self, double now):
-        self.count = 1
-        self.first_req = now
+cdef extern from *:
+    """
+    #ifdef _MSC_VER
+    #define strncasecmp _strnicmp
+    #define strcasecmp _stricmp
+    #endif
+    """
 
-cdef dict _rate_limit_store = {}
+cdef class PyberryRateLimiter:
+    cdef dict _store
+    cdef object _lock
+    cdef int _max_ips
+    
+    def __init__(self, int max_ips=10000):
+        # Limit to 10,000 unique IPs to prevent memory exhaustion
+        self._store = {}
+        self._lock = threading.Lock()
+        self._max_ips = max_ips
+
+    cdef int check_rate_limit(self, str ip, int max_req, int window) except *:
+        cdef double now = time.time()
+        cdef list state
+        
+        with self._lock:
+            state = self._store.get(ip)
+            
+            if state is None:
+                # Lazy cleanup: If we hit the memory limit, purge expired IPs
+                if len(self._store) >= self._max_ips:
+                    self._cleanup(now, window)
+                    
+                    # If still full after cleanup (extreme attack), clear everything 
+                    # or drop the request. Clearing is safer for uptime.
+                    if len(self._store) >= self._max_ips:
+                        self._store.clear()
+
+                # state is [count, first_request_time]
+                self._store[ip] = [1, now]
+                return 0
+                
+            # Check if window expired
+            if now - state[1] > window:
+                state[0] = 1
+                state[1] = now
+                return 0
+                
+            # Check if limit exceeded
+            if state[0] >= max_req:
+                return 429
+                
+            state[0] += 1
+            return 0
+
+    cdef void _cleanup(self, double now, int window):
+        """Removes expired IPs from the dictionary"""
+        cdef list to_delete = []
+        for ip, state in self._store.items():
+            if now - state[1] > window:
+                to_delete.append(ip)
+                
+        for ip in to_delete:
+            del self._store[ip]
+
+cdef PyberryRateLimiter _global_rate_limiter = PyberryRateLimiter()
 
 cdef int check_rate_limit(str ip, int max_req, int window) except *:
-    cdef double now = time.time()
-    cdef RateLimitState state = _rate_limit_store.get(ip)
-    
-    if state is None:
-        _rate_limit_store[ip] = RateLimitState(now)
-        return 0
+    return _global_rate_limiter.check_rate_limit(ip, max_req, window)
+
+cdef bint is_cors_origin_allowed(str request_origin, list allowed_origins):
+    """
+    Validates the request origin against a list of allowed origins.
+    allowed_origins can contain:
+    - "*" (allow all)
+    - "https://example.com" (exact match)
+    - "https://*.example.com" (subdomain wildcard)
+    """
+    if "*" in allowed_origins:
+        return True
         
-    if now - state.first_req > window:
-        # Reset window
-        state.count = 1
-        state.first_req = now
-        return 0
-        
-    if state.count >= max_req:
-        return 429
-        
-    state.count += 1
-    return 0
+    if request_origin in allowed_origins:
+        return True
+
+    # Parse the request origin to isolate the scheme and hostname
+    try:
+        parsed_req = urlparse(request_origin)
+        req_scheme = parsed_req.scheme
+        req_host = parsed_req.hostname
+    except Exception:
+        return False
+
+    if not req_host:
+        return False
+
+    for allowed in allowed_origins:
+        if "*." in allowed:
+            try:
+                parsed_allowed = urlparse(allowed)
+                allowed_scheme = parsed_allowed.scheme
+                allowed_host = parsed_allowed.hostname # e.g., *.example.com
+            except Exception:
+                continue
+            
+            # Ensure HTTP/HTTPS schemes match
+            if req_scheme != allowed_scheme:
+                continue
+                
+            # Safely check subdomain: strip the '*' and check suffix
+            # E.g., allowed_host = "*.example.com" -> base_domain = ".example.com"
+            base_domain = allowed_host[1:] 
+            
+            if req_host.endswith(base_domain):
+                return True
+
+    return False
 
 cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, bint path_traversal_protection) except *:
     """
@@ -39,7 +126,8 @@ cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, b
     Returns 0 if valid, 400 for Bad Request, 403 for Forbidden.
     """
     if path_traversal_protection:
-        if ".." in scope.path or "%2e%2e" in scope.path or "%2E%2E" in scope.path:
+        decoded_path = unquote(scope.path)
+        if ".." in decoded_path:
             return 400
 
     cdef str origin = None
@@ -81,16 +169,15 @@ cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, b
             else:
                 v_bytes = str(v).encode('latin-1')
             
-            c_host = <const char*>v_bytes
-            colon_ptr = strchr(c_host, b':')
-            
-            if colon_ptr != NULL:
-                host_len = colon_ptr - c_host
-                host_no_port = v_bytes[:host_len].decode('latin-1')
-            else:
-                host_no_port = v_bytes.decode('latin-1')
-            
             host = v_bytes.decode('latin-1')
+            
+            if host.startswith("["): # IPv6 with port like [::1]:8080
+                parts = host.rsplit("]", 1)
+                host_no_port = parts[0] + "]"
+            elif ":" in host:
+                host_no_port = host.rsplit(":", 1)[0]
+            else:
+                host_no_port = host
             
     # Host header validation
     if "*" not in allowed_hosts:
@@ -103,8 +190,14 @@ cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, b
 
     # CORS Validation
     if cors_enabled and origin is not None and host is not None:
-        # Extremely strict block of cross-origin requests
-        if not origin.endswith(host_no_port if host_no_port is not None else host):
+        try:
+            parsed_origin = urlparse(origin)
+            origin_domain = parsed_origin.hostname
+            is_same_origin = (origin_domain == host_no_port)
+        except Exception:
+            is_same_origin = False
+            
+        if not is_same_origin and not is_cors_origin_allowed(origin, allowed_hosts):
             return 403
             
     return 0

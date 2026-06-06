@@ -12,6 +12,3 @@ cdef class Response:
             self.headers = [('content-type', 'text/plain')]
         else:
             self.headers = headers
-            
-        if config.security_headers:
-            self.headers.extend(config.security_headers)

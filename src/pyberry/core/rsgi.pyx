@@ -120,6 +120,19 @@ cdef dict parse_qs_c(str qs):
             res[k] = [v]
     return res
 
+cdef list _inject_security_headers(list headers, list security_headers):
+    if not security_headers:
+        return headers
+        
+    cdef list final_headers = list(headers)
+    cdef set existing_keys = {k.lower() if isinstance(k, str) else k for k, v in headers}
+    
+    for k, v in security_headers:
+        if k not in existing_keys:
+            final_headers.append((k, v))
+            
+    return final_headers
+
 # ---------------------------------------------------------
 # Step 2.2: Compiled Endpoint Registration
 # ---------------------------------------------------------
@@ -165,18 +178,27 @@ async def app(scope, proto):
         # ---------------------------------------------------------
         # Step 2.3: Security Middleware Layer
         # ---------------------------------------------------------
-        sec_status = validate_request(scope, config.cors_enabled, config.allowed_hosts, config.path_traversal_protection)
+        sec_status = validate_request(scope, config.cors_enabled, config.allowed_hosts, config.path_traversal_protection, config.max_body_size)
         if sec_status != 0:
-            if sec_status == 400:
+            if sec_status == 413:
+                headers_413 = _inject_security_headers([('content-type', 'text/plain')], config.security_headers)
+                proto.response_str(
+                    status=413, 
+                    headers=headers_413, 
+                    body="Payload Too Large"
+                )
+            elif sec_status == 400:
+                headers_400 = _inject_security_headers([('content-type', 'text/plain')], config.security_headers)
                 proto.response_str(
                     status=400, 
-                    headers=[('content-type', 'text/plain')], 
+                    headers=headers_400, 
                     body="Invalid Host header"
                 )
             else:
+                headers_403 = _inject_security_headers([('content-type', 'text/plain')], config.security_headers)
                 proto.response_str(
                     status=403, 
-                    headers=[('content-type', 'text/plain')], 
+                    headers=headers_403, 
                     body="Forbidden by Strict Security Policy"
                 )
             _rsgi_push_log(req_method, req_path, sec_status)
@@ -186,9 +208,7 @@ async def app(scope, proto):
             client_ip = scope.client[0] if scope.client else "unknown"
             if check_rate_limit(client_ip, config.rate_limit_requests, config.rate_limit_window) == 429:
                 # Optimized header extension
-                headers_429 = [('content-type', 'text/plain')]
-                if config.security_headers:
-                    headers_429.extend(config.security_headers)
+                headers_429 = _inject_security_headers([('content-type', 'text/plain')], config.security_headers)
                     
                 proto.response_str(
                     status=429,
@@ -263,23 +283,22 @@ async def app(scope, proto):
                     if hasattr(res, "__await__"):
                         res = await res
                         
+                    cdef list final_headers = _inject_security_headers(res.headers, config.security_headers)
                     if isinstance(res.body, bytes):
                         proto.response_bytes(
                             status=res.status, 
-                            headers=res.headers, 
+                            headers=final_headers, 
                             body=res.body
                         )
                     else:
                         proto.response_str(
                             status=res.status, 
-                            headers=res.headers, 
+                            headers=final_headers, 
                             body=res.body
                         )
                     _rsgi_push_log(req_method, req_path, res.status)
                 except HTTPException as e:
-                    headers_ex = [('content-type', 'text/plain')]
-                    if config.security_headers:
-                        headers_ex.extend(config.security_headers)
+                    headers_ex = _inject_security_headers([('content-type', 'text/plain')], config.security_headers)
                     proto.response_str(
                         status=e.status_code, 
                         headers=headers_ex, 
@@ -289,9 +308,7 @@ async def app(scope, proto):
                 except Exception as e:
                     import traceback
                     traceback.print_exc()
-                    headers_500 = [('content-type', 'text/plain')]
-                    if config.security_headers:
-                        headers_500.extend(config.security_headers)
+                    headers_500 = _inject_security_headers([('content-type', 'text/plain')], config.security_headers)
                     proto.response_str(
                         status=500, 
                         headers=headers_500, 
@@ -300,9 +317,7 @@ async def app(scope, proto):
                     _rsgi_push_log(req_method, req_path, 500)
                 return
 
-            headers_404 = [('content-type', 'text/plain')]
-            if config.security_headers:
-                headers_404.extend(config.security_headers)
+            headers_404 = _inject_security_headers([('content-type', 'text/plain')], config.security_headers)
             proto.response_str(
                 status=404, 
                 headers=headers_404, 
@@ -323,16 +338,17 @@ async def app(scope, proto):
             return
             
         # Send the response back through Granian
+        cdef list final_headers_c = _inject_security_headers(res.headers, config.security_headers)
         if isinstance(res.body, bytes):
             proto.response_bytes(
                 status=res.status, 
-                headers=res.headers, 
+                headers=final_headers_c, 
                 body=res.body
             )
         else:
             proto.response_str(
                 status=res.status, 
-                headers=res.headers, 
+                headers=final_headers_c, 
                 body=res.body
             )
         _rsgi_push_log(req_method, req_path, res.status)

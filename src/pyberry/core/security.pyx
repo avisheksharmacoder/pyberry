@@ -120,14 +120,16 @@ cdef bint is_cors_origin_allowed(str request_origin, list allowed_origins):
 
     return False
 
-cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, bint path_traversal_protection) except *:
+cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, bint path_traversal_protection, int max_body_size) except *:
     """
-    Validates a request for Path Traversal, Host Header Injection and CORS/CSRF issues.
-    Returns 0 if valid, 400 for Bad Request, 403 for Forbidden.
+    Validates a request for Path Traversal, Host Header Injection, CORS/CSRF, and Payload limits.
+    Returns 0 if valid, 400 for Bad Request, 403 for Forbidden, 413 for Payload Too Large.
     """
     if path_traversal_protection:
         decoded_path = unquote(scope.path)
         if ".." in decoded_path:
+            return 400
+        if "\x00" in decoded_path:
             return 400
 
     cdef str origin = None
@@ -145,6 +147,7 @@ cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, b
     cdef const char* c_host
     cdef char* colon_ptr
     cdef int host_len
+    cdef int content_length = 0
     
     for k, v in headers_items:
         # RSGI headers can be bytes or strings
@@ -154,7 +157,20 @@ cdef int validate_request(object scope, bint cors_enabled, list allowed_hosts, b
             k_bytes = str(k).encode('latin-1')
             c_key = <const char*>k_bytes
             
-        if strncasecmp(c_key, b"origin", 6) == 0:
+        if max_body_size > 0 and strncasecmp(c_key, b"content-length", 14) == 0:
+            try:
+                if isinstance(v, bytes):
+                    content_length = int(v)
+                elif isinstance(v, list) and len(v) > 0:
+                    content_length = int(v[0])
+                else:
+                    content_length = int(v)
+            except ValueError:
+                pass
+                
+            if content_length > max_body_size:
+                return 413
+        elif strncasecmp(c_key, b"origin", 6) == 0:
             if isinstance(v, bytes):
                 origin = v.decode('latin-1')
             elif isinstance(v, list) and len(v) > 0:

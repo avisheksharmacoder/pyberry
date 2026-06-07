@@ -14,6 +14,7 @@ By combining the **Rust Server Gateway Interface (RSGI)** via Granian, **Cython 
 - **[Zero-Latency Logging](logging.md)**: Highly optimized background logger written in Cython ensuring that application telemetry doesn't impact request response times.
 - **Developer Friendly CLI**: Includes an intuitive command-line interface with commands to bootstrap projects (`pyberry create`), run in hot-reloading dev mode (`pyberry dev`), and check system readiness (`pyberry check`).
 - **High-Speed JSON Serialization**: Integrates a custom `fastjson` module implemented in Cython to rapidly handle JSON parsing and responses.
+- **Native Server-Sent Events (SSE)**: Zero-overhead streaming responses via `SSEResponse` with automatic JSON serialization natively integrated into Granian's RSGI stream handler.
 - **[Simple & Intuitive API](high_performance_routes.md)**: Lightweight decorator-based routing syntax (e.g., `@get`, `@post`) making it incredibly easy to define endpoints without boilerplate.
 
 ### Out-of-the-Box Memory Safety: Beating the Rust Workflow

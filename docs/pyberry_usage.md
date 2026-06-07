@@ -169,6 +169,24 @@ def web_page(req: Request):
     return HTMLResponse(html_content, status=200)
 ```
 
+### `SSEResponse`
+Used for streaming Server-Sent Events natively via asynchronous generators. It automatically serializes yielded dictionaries and formats multi-line strings, managing the connection correctly across the Granian boundary.
+
+```python
+import asyncio
+from pyberry.core.responses import SSEResponse
+
+async def stream_tokens():
+    tokens = ["Hello", " ", "World", "!"]
+    for token in tokens:
+        yield {"token": token}
+        await asyncio.sleep(0.5)
+
+@get("/stream")
+def ai_stream(req: Request):
+    return SSEResponse(stream_tokens())
+```
+
 ### Custom Headers
 You can pass custom headers to any of the response classes using a list of tuples:
 

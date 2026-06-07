@@ -8,6 +8,7 @@ All response objects can be imported from `pyberry.core.responses`. They automat
 - `JSONResponse(content: dict, status: int = 200, headers: list = None)`
 - `HTMLResponse(content: str, status: int = 200, headers: list = None)`
 - `PlainTextResponse(content: str, status: int = 200, headers: list = None)`
+- `SSEResponse(body: AsyncGenerator, status: int = 200, headers: list = None)`
 
 ### Example Usage:
 ```python
@@ -17,6 +18,25 @@ from pyberry.core.responses import JSONResponse
 @router.add_python_route("GET", "/")
 def index(req):
     return JSONResponse({"status": "ok", "message": "Welcome to PyBerry!"})
+```
+
+### Server-Sent Events (SSE)
+PyBerry provides a native `SSEResponse` class to stream data in real-time using asynchronous generators. It is highly optimized at the C-level to automatically format string, bytes, and dictionary payloads (via fastjson).
+
+```python
+import asyncio
+from pyberry.core.rsgi import router
+from pyberry.core.responses import SSEResponse
+
+async def event_generator():
+    for i in range(5):
+        # Dictionaries are automatically serialized to JSON and wrapped in SSE format
+        yield {"step": i, "status": "processing"}
+        await asyncio.sleep(1)
+
+@router.add_python_route("GET", "/stream")
+def stream_data(req):
+    return SSEResponse(event_generator())
 ```
 
 ## Status Codes

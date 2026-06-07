@@ -9,7 +9,7 @@ from pyberry.core.request import Request as PyRequest
 from pyberry.core.response import Response as PyResponse
 import asyncio
 import inspect
-from pyberry.core.responses import HTTPException
+from pyberry.core.responses import HTTPException, SSEResponse
 from pyberry.core.logger cimport push_log
 from pyberry.core.logger import start_logger
 from pyberry.core.validation import BaseModel
@@ -151,11 +151,33 @@ cdef object users_endpoint(object scope, object proto):
 _router.add_route("GET", "/", hello_endpoint)
 _router.add_route("GET", "/users", users_endpoint)
 
+cdef bytes _format_sse_chunk_c(object chunk):
+    cdef bytes payload
+    
+    # Fast-path for dict (already flat JSON bytes)
+    if type(chunk) is dict:
+        payload = fastjson.dumps(chunk)
+    elif isinstance(chunk, bytes):
+        payload = <bytes>chunk
+    elif isinstance(chunk, str):
+        payload = chunk.encode('utf-8')
+    else:
+        payload = str(chunk).encode('utf-8')
+        
+    # Multi-line string spec fix using optimized bytes.replace
+    # If there are internal newlines, turn them into 'data: ' prefixes
+    if b"\n" in payload:
+        payload = payload.replace(b"\n", b"\ndata: ")
+        
+    return b"data: " + payload + b"\n\n"
+
 async def app(scope, proto):
     cdef EndpointFunc handler
     cdef int sec_status
     cdef str req_method = scope.method
     cdef str req_path = scope.path
+    cdef list final_headers = None
+    cdef list final_headers_c = None
     global _loop_configured
 
     if not _loop_configured:
@@ -283,7 +305,22 @@ async def app(scope, proto):
                     if hasattr(res, "__await__"):
                         res = await res
                         
-                    cdef list final_headers = _inject_security_headers(res.headers, config.security_headers)
+                    final_headers = _inject_security_headers(res.headers, config.security_headers)
+                    if type(res) is SSEResponse:
+                        stream = proto.response_stream(status=res.status, headers=final_headers)
+                        try:
+                            async for chunk in res.body:
+                                await stream.send_bytes(_format_sse_chunk_c(chunk))
+                        except (ConnectionError, BrokenPipeError, ConnectionResetError):
+                            # Client disconnected gracefully
+                            pass
+                        except Exception as e:
+                            # Developer generator bug
+                            import traceback
+                            traceback.print_exc()
+                        _rsgi_push_log(req_method, req_path, res.status)
+                        return
+
                     if isinstance(res.body, bytes):
                         proto.response_bytes(
                             status=res.status, 
@@ -338,7 +375,22 @@ async def app(scope, proto):
             return
             
         # Send the response back through Granian
-        cdef list final_headers_c = _inject_security_headers(res.headers, config.security_headers)
+        final_headers_c = _inject_security_headers(res.headers, config.security_headers)
+        if type(res) is SSEResponse:
+            stream = proto.response_stream(status=res.status, headers=final_headers_c)
+            try:
+                async for chunk in res.body:
+                    await stream.send_bytes(_format_sse_chunk_c(chunk))
+            except (ConnectionError, BrokenPipeError, ConnectionResetError):
+                # Client disconnected gracefully
+                pass
+            except Exception as e:
+                # Developer generator bug
+                import traceback
+                traceback.print_exc()
+            _rsgi_push_log(req_method, req_path, res.status)
+            return
+
         if isinstance(res.body, bytes):
             proto.response_bytes(
                 status=res.status, 

@@ -23,4 +23,4 @@ from pyberry.exceptions import (
     LoopDetectedException, NotExtendedException,
     NetworkAuthenticationRequiredException
 )
-from pyberry.core.responses import HTTPException
+from pyberry.core.responses import HTTPException, SSEResponse

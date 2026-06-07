@@ -41,3 +41,17 @@ class HTTPException(Exception):
         self.status_code = status_code
         self.detail = detail or "HTTP Error"
         super().__init__(f"{self.status_code}: {self.detail}")
+
+cdef class SSEResponse(Response):
+    def __cinit__(self, body_iterator, int status = 200, list headers = None):
+        cdef list _headers = [
+            ('content-type', 'text/event-stream'),
+            ('cache-control', 'no-cache'),
+            ('connection', 'keep-alive')
+        ]
+        if headers is not None:
+            _headers.extend(headers)
+            
+        self.body = body_iterator
+        self.status = status
+        self.headers = _headers

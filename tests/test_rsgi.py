@@ -112,7 +112,7 @@ async def test_rsgi_rate_limit(mock_proto, monkeypatch):
 @pytest.mark.asyncio
 async def test_rsgi_max_body_size(mock_proto, monkeypatch):
     monkeypatch.setattr(config, "max_body_size", 10)
-    scope = MockRSGIScope(method="GET", path="/rsgi_test", proto="http")
+    scope = MockRSGIScope(method="GET", path="/rsgi_test", proto="http", headers=[(b"content-length", b"20")])
     mock_proto.body = b"x" * 20
     
     await app(scope, mock_proto)

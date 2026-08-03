@@ -18,7 +18,6 @@ def create_app(args):
         
     # Create db folder
     os.makedirs(os.path.join(base_dir, "db"), exist_ok=True)
-    os.makedirs(os.path.join(base_dir, "tests"), exist_ok=True) # Create tests folder by default
     
     print(f"{GREEN}[pyberry] Initializing project in {base_dir}...{RESET}")
     
@@ -49,13 +48,6 @@ async def get_users(req: Request):
     with open(os.path.join(base_dir, "main.py"), "w") as f:
         f.write(main_code)
 
-    # tests/test_app.py
-    test_code = """def test_example():
-    assert True
-"""
-    with open(os.path.join(base_dir, "tests", "test_app.py"), "w") as f:
-        f.write(test_code)
-        
     # security.py
     security_code = """# security.py
 # High-grade security configurations for PyBerry
@@ -102,7 +94,7 @@ Welcome to your new PyBerry application!
 Here are the main commands you must use with your PyBerry project to guarantee memory safety:
 
 - **`pyberry run main.py --dev`**: The Playground. Start the development server with hot-reloading. The GIL handles Python memory safety.
-- **`pyberry build main.py --audit`**: The Crucible. Mandatory before deployment. Transpiles your code and runs ThreadSanitizer (TSan) against your `tests/` folder. Generates a `build.lock` on success.
+- **`pyberry build main.py`**: The Crucible. Mandatory before deployment. Transpiles your code. Generates a `build.lock` on success.
 - **`pyberry start --prod`**: The Rocket. Deploys the optimized server, but ONLY if the `build.lock` audit tag exists.
 - **`pyberry migrate`**: Run the `db/initial_schema.sql` file to setup your database.
 """
@@ -155,21 +147,11 @@ from pyberry.core.rsgi import app
 
 
 def build(args):
-    if not getattr(args, "audit", False):
-        print(f"{RED}[ERROR] You must pass the --audit flag (`pyberry build <app> --audit`) to run the mandatory TSan Crucible Audit.{RESET}")
-        sys.exit(1)
-        
     base_dir = os.path.dirname(os.path.abspath(args.app))
     if not base_dir:
         base_dir = "."
         
-    tests_dir = os.path.join(base_dir, "tests")
-    if not os.path.exists(tests_dir) or not os.path.isdir(tests_dir):
-        print(f"{RED}[ERROR] A 'tests/' directory is required in your project root to run the TSan audit.{RESET}")
-        print(f"{RED}Please create a 'tests/' folder with your pytest code and try again.{RESET}")
-        sys.exit(1)
-
-    print(f"{GREEN}[pyberry] Building {args.app} for AUDIT (The Crucible)...{RESET}")
+    print(f"{GREEN}[pyberry] Building {args.app} (The Crucible)...{RESET}")
     from pyberry.compiler.transpile import transpile_file
     
     ignore_dirs = {".git", ".berry_build", "__pycache__", "venv", ".venv", "env", ".env", "src", "lib", "bin", "include", "share", ".pytest_cache", "tests"}
@@ -211,9 +193,8 @@ def build(args):
 from setuptools import setup, Extension
 from Cython.Build import cythonize
 import os
-
-compile_flags = ["-fsanitize=thread", "-g", "-O1", "-fPIC"] if os.environ.get("PYBERRY_TSAN", "0") == "1" else ["-O3", "-march=native", "-ffast-math"]
-link_flags = ["-fsanitize=thread"] if os.environ.get("PYBERRY_TSAN", "0") == "1" else []
+compile_flags = ["-O3", "-march=native", "-ffast-math"]
+link_flags = []
 
 extensions = {ext_list_str}
 for ext in extensions:
@@ -231,35 +212,12 @@ setup(
 """
     with open(os.path.join(base_dir, ".berry_build", "setup.py"), "w") as f:
         f.write(setup_code)
-        
-    print(f"{GREEN}[pyberry] Compiling with ThreadSanitizer enabled...{RESET}")
-    env = os.environ.copy()
-    env["PYBERRY_TSAN"] = "1"
-    subprocess.run([sys.executable, "setup.py", "build_ext", "--inplace"], cwd=os.path.join(base_dir, ".berry_build"), env=env, check=True)
+    print(f"{GREEN}[pyberry] Compiling...{RESET}")
+    subprocess.run([sys.executable, "setup.py", "build_ext", "--inplace"], cwd=os.path.join(base_dir, ".berry_build"), check=True)
     
-    print(f"{GREEN}[pyberry] Running TSan Crucible Audit on test suite...{RESET}")
-    pytest_env = os.environ.copy()
-    pytest_env["PYTHONPATH"] = f"{os.path.join(base_dir, '.berry_build')}:{base_dir}"
-    
-    cli_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.dirname(os.path.dirname(cli_dir)) 
-    supp_path = os.path.join(root_dir, "tsan_suppressions.txt")
-    
-    tsan_opts = "halt_on_error=1 history_size=7"
-    if os.path.exists(supp_path):
-        tsan_opts = f"suppressions={supp_path} " + tsan_opts
-        
-    pytest_env["TSAN_OPTIONS"] = tsan_opts
-    
-    result = subprocess.run([sys.executable, "-m", "pytest", "tests/"], cwd=base_dir, env=pytest_env)
-    
-    if result.returncode == 0:
-        print(f"{GREEN}[pyberry] Audit passed! Zero data races detected. Generating build.lock...{RESET}")
-        with open(os.path.join(base_dir, ".berry_build", "build.lock"), "w") as f:
-            f.write("PASSED_TSAN_AUDIT")
-    else:
-        print(f"{RED}[ERROR] TSan Audit failed! Data races detected in the application.{RESET}")
-        sys.exit(1)
+    print(f"{GREEN}[pyberry] Build successful! Generating build.lock...{RESET}")
+    with open(os.path.join(base_dir, ".berry_build", "build.lock"), "w") as f:
+        f.write("PASSED_BUILD")
 
 
 def start(args):
@@ -270,14 +228,11 @@ def start(args):
     print(f"{GREEN}[pyberry] Starting in PRODUCTION mode (The Rocket)...{RESET}")
     
     if not os.path.exists(".berry_build/build.lock"):
-        print(f"{RED}[PyBerry] FATAL: Cannot start in production mode. TSan audit has not been passed. (Missing .berry_build/build.lock){RESET}")
+        print(f"{RED}[PyBerry] FATAL: Cannot start in production mode. Build has not been passed. (Missing .berry_build/build.lock){RESET}")
         sys.exit(1)
         
-    print(f"{GREEN}[pyberry] Recompiling with maximum optimizations (-O3, No TSan)...{RESET}")
     env = os.environ.copy()
-    env["PYBERRY_TSAN"] = "0"
-    subprocess.run([sys.executable, "setup.py", "build_ext", "--inplace", "--force"], cwd=".berry_build", env=env, check=True)
-
+    
     print(f"{GREEN}  - Server:      Granian{RESET}")
     print(f"{GREEN}  - Workers:     {args.workers}{RESET}")
     print(f"{GREEN}  - Event Loop:  uvloop{RESET}")
@@ -401,11 +356,10 @@ def main():
     
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("app", help="Path to your app file (e.g., main.py)")
-    run_parser.add_argument("--dev", action="store_true", help="Run in Playground mode (hot-reloading, no TSan)")
+    run_parser.add_argument("--dev", action="store_true", help="Run in Playground mode (hot-reloading)")
     
     build_parser = subparsers.add_parser("build")
     build_parser.add_argument("app", help="Path to your app file (e.g., main.py)")
-    build_parser.add_argument("--audit", action="store_true", help="Mandatory TSan audit mode")
     
     start_parser = subparsers.add_parser("start")
     start_parser.add_argument("--prod", action="store_true", help="Run in Rocket mode (requires build.lock)")

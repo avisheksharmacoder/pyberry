@@ -18,11 +18,11 @@ If you encounter a `RuntimeWarning` about the Global Interpreter Lock (GIL) bein
 PYTHON_GIL=0 pyberry run main.py --dev
 ```
 
-### 2. `pyberry build <app_file.py> --audit` (The Crucible)
+### 2. `pyberry build <app_file.py>` (The Crucible)
 Mandatory before deployment. Prepares your application for production by compiling it.
 - Triggers `pyberry.compiler.transpile` to parse the Python AST of your app and injects Cython optimizations.
-- Compiles the code using `gcc` into native shared objects (`.so`) with ThreadSanitizer (TSan) enabled.
-- Runs your `tests/` folder against the TSan-instrumented build to detect any data races.
+- Compiles the code using `gcc` into native shared objects (`.so`).
+- Outputs the compiled code to a `.berry_build/` directory.
 - Generates a `build.lock` on success.
 
 ```bash

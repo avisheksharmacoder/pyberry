@@ -1,9 +1,0 @@
-# tsan_suppressions.txt
-# Ignore data races internal to the CPython interpreter (the GIL handles these)
-race:^Py*
-race:^_Py*
-
-# Ignore Granian's internal Rust memory management (we assume Granian is safe)
-race:^granian::*
-
-# Only alert on our custom PyBerry Cython/C structures

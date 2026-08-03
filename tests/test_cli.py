@@ -13,7 +13,7 @@ def test_cli_create_app():
         
         mock_makedirs.assert_any_call(os.path.join(os.getcwd(), "test_project"), exist_ok=True)
         mock_makedirs.assert_any_call(os.path.join(os.getcwd(), "test_project", "db"), exist_ok=True)
-        assert mock_open.call_count == 6  # main.py, tests/test_app.py, security.py, db/initial_schema.sql, docs.md, berrypy.log
+        assert mock_open.call_count == 5  # main.py, security.py, db/initial_schema.sql, docs.md, berrypy.log
 
 def test_cli_build():
     args = MagicMock()

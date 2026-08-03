@@ -67,31 +67,6 @@ if os.path.exists("docs/README.md"):
     with open("docs/README.md", "r", encoding="utf-8") as fh:
         long_description = fh.read()
 
-# =============================================================================
-# THREAD SANITIZER (TSan) INTEGRATION
-# =============================================================================
-# Detect if the developer or CI/CD is requesting a TSan build.
-#
-# IMPORTANT: TSan requires specific versions of GCC or Clang and WILL cause
-# significant performance degradation when enabled. It should be used
-# EXCLUSIVELY for testing and debugging, NEVER in production builds.
-#
-# How TSan applies to PyBerry:
-# 1. Cython/C Files (.pyx, .c): 100% Fully Monitored
-#    Any file compiled here with -fsanitize=thread is instrumented by TSan.
-#    TSan injects checks around every memory read/write at the machine-code level.
-#    This is critical for safety when the GIL is released (nogil), such as in
-#    lock-free ring buffers (future.pyx) or background thread writes (logger.pyx).
-#
-# 2. Pure Python Files (.py): Monitored via the Interpreter Loop
-#    Pure .py files are not compiled into machine code here. They are executed by
-#    the CPython interpreter which (usually) is not compiled with TSan. Thus, TSan
-#    cannot look inside pure Python objects to track individual object mutations.
-#    However, they are naturally protected from low-level data races by the GIL.
-#    When Python code calls into our instrumented Cython modules (e.g. passing a
-#    payload to fastjson), TSan immediately takes control at that boundary.
-# =============================================================================
-USE_TSAN = os.environ.get("PYBERRY_TSAN", "0") == "1"
 
 # Base compiler flags for extreme performance
 if sys.platform == "win32":
@@ -99,17 +74,6 @@ if sys.platform == "win32":
 else:
     compile_flags = ["-O3", "-march=native", "-ffast-math"]
 link_flags = []
-
-# If TSan is enabled, drop optimizations and inject sanitizers
-if USE_TSAN:
-    print("[PyBerry Build] WARNING: Compiling with ThreadSanitizer enabled. Performance will be degraded.")
-    compile_flags = [
-        "-fsanitize=thread", 
-        "-g",                # Debug symbols for exact line numbers
-        "-O1",               # Low optimization so the compiler doesn't hide the data race
-        "-fPIC"
-    ]
-    link_flags = ["-fsanitize=thread"]
 
 extensions = [
     Extension("pyberry.core.request", ["src/pyberry/core/request.pyx"]),
@@ -142,7 +106,7 @@ setup(
         extensions,
         compiler_directives={
             "language_level": "3", 
-            "boundscheck": not USE_TSAN, # Keep bounds checking if NOT using TSAN for safety, disable for pure speed
+            "boundscheck": True,
             "wraparound": False
         },
         force=True

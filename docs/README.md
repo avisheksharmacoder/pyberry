@@ -5,8 +5,8 @@ Welcome to the [PyBerry](https://pypi.org/project/pyberry-framework/) technical 
 By combining the **Rust Server Gateway Interface (RSGI)** via Granian, **Cython Ahead-Of-Time (AOT) compilation**, and a custom **C-based Radix Tree Router**, PyBerry regularly exceeds 30,000 Requests/sec on a single worker process locally, sometimes more. 
 
 
-### Pyberry is in active development. 
-- I'm exploring removing cython for a simpler and more maintainable core implementation in pure python and rust only. This is in accordance to use LorealDB as the default integrated database for Pyberry Framework, while both using a pure 100% rust core. 
+### Pyberry is in active port to Rust. 
+- I'm exploring removing cython for a simpler and more maintainable core implementation in pure python and rust only. This is in accordance to use LorealDB as the default integrated database for Pyberry Framework, while both using a pure 100% rust core. This repo will be archived soon and a new one will be created for hosting the framework. 
 
 ## Key Features
 
